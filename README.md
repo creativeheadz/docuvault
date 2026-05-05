@@ -285,6 +285,7 @@ Records are the single source of truth; export to markdown or other formats happ
 Ideas under exploration — not yet built:
 
 - **Live SSL/TLS expiration probe** — On the SSL Certificates page, add a per-row "Refresh" button that opens a TLS connection to the certificate's hostname (or the linked domain), reads the live certificate, and overwrites the stored `expires_at` with the real `notAfter`. Removes the manual-entry drift problem and turns the page from passive log into authoritative monitor.
+- **MeshCentral deep-link to the correct device** — Today the Remote Desktop / Terminal buttons on the Configurations page open MeshCentral but land on a generic disconnected Desktop tab instead of the selected node. The URL built in `build_remote_url` (`?viewmode=11&gotonode=<id>`) needs the node id format MeshCentral actually accepts — likely the full `node//<meshid>/<id>` form, or a different param name on newer MeshCentral versions. Investigate against the running server, then fix so the session opens already attached to the device.
 
 ## License
 
