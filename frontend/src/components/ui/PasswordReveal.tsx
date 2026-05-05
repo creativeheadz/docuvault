@@ -31,16 +31,17 @@ export function PasswordReveal({ onReveal, className }: PasswordRevealProps) {
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <span className="font-mono text-sm">
+      <span className="font-mono text-sm tnum-mono text-ink">
         {visible ? value : '••••••••••••'}
       </span>
       <button
         onClick={handleToggle}
         disabled={loading}
-        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        className="p-1 text-ink-faint hover:text-ember transition-colors disabled:opacity-50"
         title={visible ? 'Hide' : 'Reveal'}
+        type="button"
       >
-        {visible ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+        {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
       </button>
       {visible && value && <CopyButton value={value} />}
     </div>

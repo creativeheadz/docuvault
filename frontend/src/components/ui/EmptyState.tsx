@@ -8,15 +8,24 @@ interface EmptyStateProps {
   action?: ReactNode
 }
 
-export function EmptyState({ message = 'No data found', description, icon, action }: EmptyStateProps) {
+export function EmptyState({ message = 'Nothing here yet', description, icon, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="mb-4 text-gray-300 dark:text-gray-600">
-        {icon || <InboxIcon className="h-12 w-12" />}
+    <div className="empty-instrument">
+      <div className="text-ink-faint mb-5 inline-flex">
+        {icon || <InboxIcon className="h-8 w-8" />}
       </div>
-      <h3 className="text-sm font-medium text-gray-900 dark:text-white">{message}</h3>
-      {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      <h3
+        className="font-serif italic text-xl text-ink m-0"
+        style={{ fontVariationSettings: '"opsz" 144, "SOFT" 80, "wght" 380' }}
+      >
+        {message}
+      </h3>
+      {description && (
+        <p className="mt-2 font-mono text-xs text-ink-dim leading-relaxed max-w-md mx-auto">
+          {description}
+        </p>
+      )}
+      {action && <div className="mt-6">{action}</div>}
     </div>
   )
 }

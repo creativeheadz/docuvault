@@ -14,17 +14,21 @@ export function CopyButton({ value, className }: CopyButtonProps) {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(value)
     setCopied(true)
-    toast.success('Copied to clipboard')
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied')
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
     <button
       onClick={handleCopy}
-      className={cn('p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors', className)}
+      className={cn(
+        'p-1 text-ink-faint hover:text-ember transition-colors',
+        className
+      )}
       title="Copy"
+      type="button"
     >
-      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-gray-400" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   )
 }

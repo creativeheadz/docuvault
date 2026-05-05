@@ -63,42 +63,61 @@ export function CommandPalette() {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
-      <div className="fixed inset-0 bg-black/50" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <Search className="h-5 w-5 text-gray-400" />
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[18vh]">
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
+      <div className="modal-panel relative w-full max-w-xl mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-line">
+          <Search className="h-4 w-4 text-ink-faint" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search documentation..."
-            className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-gray-400"
+            placeholder="Search documentation…"
+            className="flex-1 bg-transparent border-none outline-none font-mono text-sm text-ink placeholder:text-ink-faint"
             autoFocus
           />
-          <kbd className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">Esc</kbd>
+          <span className="font-mono text-[10px] uppercase tracking-kicker text-ink-faint border border-line-hot px-1.5 py-0.5">Esc</span>
         </div>
         {results.length > 0 && (
-          <div className="max-h-80 overflow-y-auto py-2">
+          <div className="max-h-[60vh] overflow-y-auto py-1">
             {results.map((r, idx) => {
               const Icon = entityIcons[r.entity_type] || Building2
+              const active = idx === selectedIdx
               return (
                 <button
                   key={`${r.entity_type}-${r.entity_id}`}
                   onClick={() => handleSelect(r)}
                   onMouseEnter={() => setSelectedIdx(idx)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${idx === selectedIdx ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                  className={`w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors border-l-[3px] ${
+                    active
+                      ? 'border-ember bg-ember-wash text-ink'
+                      : 'border-transparent text-ink-dim hover:text-ink hover:bg-surface-sunken'
+                  }`}
                 >
-                  <Icon className="h-4 w-4 text-gray-400 shrink-0" />
-                  <span className="text-sm font-medium truncate">{r.name}</span>
-                  <Badge className="ml-auto text-[10px]">{r.entity_type.replace('_', ' ')}</Badge>
+                  <Icon className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-ember' : 'text-ink-faint'}`} />
+                  <span className="font-mono text-sm truncate flex-1">{r.name}</span>
+                  <Badge variant={active ? 'ember' : 'default'}>{r.entity_type.replace('_', ' ')}</Badge>
                 </button>
               )
             })}
           </div>
         )}
         {query && !results.length && (
-          <div className="py-8 text-center text-sm text-gray-400">No results found</div>
+          <div className="py-10 text-center font-mono text-xs uppercase tracking-kicker text-ink-faint">
+            · No results ·
+          </div>
+        )}
+        {!query && (
+          <div className="py-8 px-5 font-mono text-[11px] uppercase tracking-kicker text-ink-faint flex items-center justify-between">
+            <span>· Type to search ·</span>
+            <span className="flex items-center gap-2">
+              <kbd className="border border-line-hot px-1.5 py-0.5">↑</kbd>
+              <kbd className="border border-line-hot px-1.5 py-0.5">↓</kbd>
+              <span>navigate</span>
+              <kbd className="border border-line-hot px-1.5 py-0.5 ml-2">↵</kbd>
+              <span>open</span>
+            </span>
+          </div>
         )}
       </div>
     </div>

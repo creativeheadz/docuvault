@@ -8,24 +8,24 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/organizations', label: 'Organizations', icon: Building2 },
-  { path: '/locations', label: 'Locations', icon: MapPin },
-  { path: '/contacts', label: 'Contacts', icon: Users },
-  { path: '/configurations', label: 'Configurations', icon: Server },
-  { path: '/passwords', label: 'Passwords', icon: KeyRound },
-  { path: '/domains', label: 'Domains', icon: Globe },
-  { path: '/ssl-certificates', label: 'SSL Certificates', icon: ShieldCheck },
-  { path: '/documents', label: 'Documents', icon: FileText },
-  { path: '/flexible-assets', label: 'Flexible Assets', icon: Puzzle },
-  { path: '/checklists', label: 'Checklists', icon: CheckSquare },
-  { path: '/runbooks', label: 'Runbooks', icon: BookOpen },
-  { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/flags', label: 'Flags', icon: Flag },
+  { path: '/dashboard',         label: 'Overview',       icon: LayoutDashboard },
+  { path: '/organizations',     label: 'Organizations',  icon: Building2 },
+  { path: '/locations',         label: 'Locations',      icon: MapPin },
+  { path: '/contacts',          label: 'Contacts',       icon: Users },
+  { path: '/configurations',    label: 'Configurations', icon: Server },
+  { path: '/passwords',         label: 'Passwords',      icon: KeyRound },
+  { path: '/domains',           label: 'Domains',        icon: Globe },
+  { path: '/ssl-certificates',  label: 'SSL Certs',      icon: ShieldCheck },
+  { path: '/documents',         label: 'Documents',      icon: FileText },
+  { path: '/flexible-assets',   label: 'Assets',         icon: Puzzle },
+  { path: '/checklists',        label: 'Checklists',     icon: CheckSquare },
+  { path: '/runbooks',          label: 'Runbooks',       icon: BookOpen },
+  { path: '/reports',           label: 'Reports',        icon: BarChart3 },
+  { path: '/flags',             label: 'Flags',          icon: Flag },
 ]
 
 const bottomItems = [
-  { path: '/search', label: 'Search', icon: Search },
+  { path: '/search',   label: 'Search',   icon: Search },
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -36,63 +36,96 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen bg-slate-900 text-white flex flex-col transition-all duration-200 z-30',
-        collapsed ? 'w-[64px]' : 'w-[256px]'
+        'fixed left-0 top-0 h-screen bg-surface-raised text-ink flex flex-col transition-all duration-200 z-30',
+        'border-r border-line',
+        collapsed ? 'w-[64px]' : 'w-[240px]'
       )}
     >
-      <div className="flex items-center h-16 px-4 border-b border-white/10">
-        {!collapsed && <h1 className="text-lg font-bold tracking-tight">DocuVault</h1>}
+      {/* Brand mark */}
+      <div className="flex items-center h-[68px] px-4 border-b border-line">
+        {!collapsed ? (
+          <div className="flex items-baseline gap-2">
+            <span
+              className="font-serif italic text-[22px] text-ember leading-none"
+              style={{ fontVariationSettings: '"opsz" 144, "SOFT" 100, "wght" 400' }}
+            >
+              DocuVault.
+            </span>
+          </div>
+        ) : (
+          <span
+            className="font-serif italic text-2xl text-ember leading-none mx-auto"
+            style={{ fontVariationSettings: '"opsz" 144, "SOFT" 100, "wght" 400' }}
+          >
+            D.
+          </span>
+        )}
         <button
           onClick={toggle}
-          className={cn('p-1.5 rounded-lg hover:bg-white/10 transition-colors', collapsed ? 'mx-auto' : 'ml-auto')}
+          className={cn(
+            'p-1.5 text-ink-faint hover:text-ember transition-colors',
+            collapsed ? 'mx-auto mt-1' : 'ml-auto'
+          )}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2 px-2">
+      {/* Section kicker (only when expanded) */}
+      {!collapsed && (
+        <div className="px-5 pt-5 pb-2">
+          <span className="kicker text-ink-faint">§ Workspace</span>
+        </div>
+      )}
+
+      <nav className="flex-1 overflow-y-auto py-1">
         {navItems.map((item) => {
           const active = location.pathname.startsWith(item.path)
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 mb-0.5',
-                active
-                  ? 'bg-white/5 text-white border-l-2 border-indigo-500 ml-0 pl-[10px]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent ml-0 pl-[10px]'
-              )}
+              className={cn('nav-item', active && 'nav-item-active', collapsed && 'justify-center px-0')}
               title={collapsed ? item.label : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <item.icon className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </Link>
           )
         })}
       </nav>
 
-      <div className="border-t border-white/10 py-2 px-2">
+      {!collapsed && (
+        <div className="px-5 pt-3 pb-2">
+          <span className="kicker text-ink-faint">§ Tools</span>
+        </div>
+      )}
+
+      <div className="border-t border-line py-1">
         {bottomItems.map((item) => {
           const active = location.pathname.startsWith(item.path)
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 mb-0.5',
-                active
-                  ? 'bg-white/5 text-white border-l-2 border-indigo-500 ml-0 pl-[10px]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent ml-0 pl-[10px]'
-              )}
+              className={cn('nav-item', active && 'nav-item-active', collapsed && 'justify-center px-0')}
               title={collapsed ? item.label : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
+              <item.icon className="h-4 w-4 shrink-0" />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           )
         })}
       </div>
+
+      {!collapsed && (
+        <div className="px-5 py-3 border-t border-line">
+          <div className="font-mono text-[9px] uppercase tracking-kicker text-ink-faint">
+            Old Forge Technologies
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

@@ -65,23 +65,23 @@ export function LoginForm() {
 
   if (mfaRequired) {
     return (
-      <form onSubmit={handleMfaVerify} className="space-y-4">
-        <div className="flex flex-col items-center gap-2 mb-2">
-          <Shield className="h-8 w-8 text-primary-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-            Enter the 6-digit code from your authenticator app
+      <form onSubmit={handleMfaVerify} className="space-y-5">
+        <div className="flex items-center gap-3 pb-3 border-b border-line">
+          <Shield className="h-4 w-4 text-ember" />
+          <p className="font-mono text-xxs uppercase tracking-kicker text-ink-dim">
+            Two-factor required
           </p>
         </div>
         <Input
           id="totp_code"
-          label="Verification Code"
+          label="Verification code"
           value={totpCode}
           onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
           placeholder="000000"
           maxLength={6}
           autoFocus
           required
-          className="text-center text-lg tracking-widest"
+          className="text-center text-lg tnum-mono tracking-[0.4em]"
         />
         <Button type="submit" loading={loading} disabled={totpCode.length !== 6} className="w-full">
           Verify
@@ -89,36 +89,36 @@ export function LoginForm() {
         <button
           type="button"
           onClick={handleBackToLogin}
-          className="w-full text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400"
+          className="w-full font-mono text-xxs uppercase tracking-kicker text-ink-faint hover:text-ember transition-colors"
         >
-          Back to login
+          ← Back to sign-in
         </button>
       </form>
     )
   }
 
   return (
-    <form onSubmit={handleLogin} className="space-y-4">
+    <form onSubmit={handleLogin} className="space-y-5">
       <Input
         id="username"
-        label="Username"
+        label="Operator"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-        placeholder="Enter your username"
+        placeholder="username"
         autoFocus
         required
       />
       <Input
         id="password"
-        label="Password"
+        label="Pass-phrase"
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="Enter your password"
+        placeholder="••••••••"
         required
       />
       <Button type="submit" loading={loading} className="w-full">
-        Sign In
+        Open vault →
       </Button>
     </form>
   )

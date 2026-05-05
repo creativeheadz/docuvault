@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Search, Moon, Sun, LogOut, User } from 'lucide-react'
+import { Search, Moon, Sun, LogOut } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { logout } from '@/api/auth'
@@ -16,28 +16,49 @@ export function TopBar() {
     navigate('/login')
   }
 
+  const initials = (user?.full_name || user?.username || '??')
+    .split(/[\s.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join('')
+
   return (
-    <header className="h-16 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-6">
+    <header className="h-[68px] border-b border-line bg-surface flex items-center justify-between px-7">
       <Breadcrumbs />
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate('/search')}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          className="theme-pill"
+          aria-label="Search"
         >
-          <Search className="h-4 w-4" />
-          <span className="hidden sm:inline">Search...</span>
-          <kbd className="hidden sm:inline text-xs bg-gray-200 dark:bg-gray-600 px-1.5 py-0.5 rounded">Ctrl+K</kbd>
+          <Search className="h-3 w-3" />
+          <span className="hidden sm:inline">Search</span>
+          <span className="hidden md:inline text-ink-faint">Ctrl K</span>
         </button>
-        <button onClick={toggle} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-          {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+
+        <button onClick={toggle} className="theme-pill" aria-label="Toggle theme">
+          {dark ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+          <span className="hidden sm:inline">{dark ? 'Day' : 'Night'}</span>
         </button>
-        <div className="flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-600">
-          <div className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-            <User className="h-4 w-4 text-primary-600" />
+
+        <div className="flex items-center gap-3 pl-4 border-l border-line">
+          <div className="h-8 w-8 border border-line-hot bg-surface-sunken flex items-center justify-center font-mono text-[10px] font-semibold tracking-button text-ember">
+            {initials}
           </div>
-          <span className="text-sm font-medium hidden sm:inline">{user?.full_name || user?.username}</span>
-          <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Logout">
-            <LogOut className="h-4 w-4" />
+          <div className="hidden sm:flex flex-col leading-none">
+            <span className="font-mono text-xs text-ink">{user?.full_name || user?.username}</span>
+            <span className="font-mono text-[9px] uppercase tracking-kicker text-ink-faint mt-1">
+              Operator
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 text-ink-faint hover:text-ember transition-colors"
+            title="Logout"
+            aria-label="Logout"
+          >
+            <LogOut className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

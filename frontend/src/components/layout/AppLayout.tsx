@@ -8,11 +8,11 @@ export function AppLayout() {
   const { collapsed } = useSidebarStore()
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-surface text-ink">
       <Sidebar />
-      <div className={cn('transition-all duration-200', collapsed ? 'ml-[64px]' : 'ml-[256px]')}>
+      <div className={cn('transition-all duration-200', collapsed ? 'ml-[64px]' : 'ml-[240px]')}>
         <TopBar />
-        <main className="p-6">
+        <main className="px-7 py-7 max-w-[1400px]">
           <Outlet />
         </main>
       </div>

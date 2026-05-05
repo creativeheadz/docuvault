@@ -2,44 +2,397 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================================
+   DOCUVAULT · OLD FORGE FAMILY
+   Letterpress-instrument design system, ported from Mantrinol.
+   Token-driven; theme switches via [data-theme] on <html>.
+   ============================================================= */
+
+/* ---------- TOKENS · NIGHT (default) ---------------------- */
+:root,
+[data-theme="dark"] {
+  /* Surfaces — inverted Old Forge ink palette */
+  --bg:          #0A0805;
+  --bg-2:        #14110D;
+  --bg-3:        #1E1A14;
+  --line:        #2A251D;
+  --line-hot:    #3a3327;
+
+  /* Ink (text) */
+  --ink:         #F0E7D2;
+  --ink-dim:     #B9A77C;
+  --ink-faint:   #7A6F5E;
+
+  /* Ember accent */
+  --ember:       #E85D2B;
+  --ember-deep:  #C8441C;
+  --ember-glow:  rgba(232, 93, 43, 0.30);
+  --ember-wash:  rgba(232, 93, 43, 0.06);
+
+  /* Status hues */
+  --green:       #6FB57E;
+  --red:         #E07360;
+  --warn:        #D9A23A;
+  --blue:        #6CA8C7;
+
+  /* Atmosphere */
+  --grid-line:   rgba(232, 93, 43, 0.04);
+  --vignette:    radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
+
+  /* Type */
+  --serif:       "Fraunces", Georgia, "Times New Roman", serif;
+  --mono:        "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans:        "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---------- TOKENS · DAY ---------------------------------- */
+[data-theme="light"] {
+  --bg:          #F0E7D2;
+  --bg-2:        #EADEC0;
+  --bg-3:        #DCCFA8;
+  --line:        #B9A77C;
+  --line-hot:    #8B7F66;
+
+  --ink:         #181511;
+  --ink-dim:     #5B5140;
+  --ink-faint:   #8B7F66;
+
+  --ember:       #C8441C;
+  --ember-deep:  #8C2E12;
+  --ember-glow:  rgba(200, 68, 28, 0.28);
+  --ember-wash:  rgba(200, 68, 28, 0.07);
+
+  --green:       #4F7A3A;
+  --red:         #A8261B;
+  --warn:        #9A6E0F;
+  --blue:        #1F4E7A;
+
+  --grid-line:   rgba(20, 17, 13, 0.04);
+  --vignette:    radial-gradient(ellipse at center, transparent 70%, rgba(120, 95, 30, 0.10) 100%);
+}
+
+/* ---------- BASE ----------------------------------------- */
 @layer base {
-  * {
-    @apply border-gray-200 dark:border-gray-700;
+  * { border-color: var(--line); }
+  *:focus { outline: none; }
+  *:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
   }
+
   body {
-    @apply font-sans text-base;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
   }
+
+  /* Subtle CRT-style grid backdrop — fixed, behind everything */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Atmospheric vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: var(--vignette);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  #root {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+  }
+
+  ::selection { background: var(--ember); color: var(--bg); }
+
+  /* Form element baseline using sans for readable inputs */
+  input, select, textarea, button {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  /* Headings default to serif italic at the top of the type stack;
+     pages can override with mono/sans where appropriate. */
+  h1, h2 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 80, "wght" 380;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+  }
+
+  /* Anchor default — ember underline-on-hover */
+  a {
+    color: var(--ember);
+    text-decoration: none;
+    transition: color .15s;
+  }
+  a:hover { color: var(--ember-deep); }
+
+  /* Numeric tabular alignment whenever .tnum is set */
+  .tnum, [data-tnum] { font-variant-numeric: tabular-nums; }
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg px-4 py-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .btn-secondary {
-    @apply bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border font-medium rounded-lg px-4 py-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-  }
-  .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg px-4 py-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
-  }
-  .input-field {
-    @apply block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-150;
-  }
-  .card {
-    @apply bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-100 dark:border-gray-700;
-  }
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ---------- SCROLLBAR ------------------------------------ */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: var(--line-hot);
+  border: 2px solid var(--bg);
 }
-.dark ::-webkit-scrollbar-thumb {
-  background: #475569;
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hot) transparent;
+}
+
+/* ---------- COMPONENT RECIPES ---------------------------- */
+@layer components {
+
+  /* ----- Buttons ----- */
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 select-none;
+    font-family: var(--mono);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    border-radius: 0;
+    border: 1px solid var(--line-hot);
+    background: transparent;
+    color: var(--ink);
+    transition: border-color .15s, color .15s, background .15s;
+    padding: 8px 16px;
+    font-size: 11px;
+  }
+  .btn-base:hover { border-color: var(--ink); }
+  .btn-base:disabled,
+  .btn-base[disabled] { opacity: .5; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--ember);
+    border-color: var(--ember);
+    color: var(--bg);
+  }
+  .btn-primary:hover { background: var(--ember-deep); border-color: var(--ember-deep); color: var(--bg); }
+  [data-theme="light"] .btn-primary,
+  [data-theme="light"] .btn-primary:hover { color: #F0E7D2; }
+
+  .btn-secondary {
+    background: transparent;
+    border-color: var(--line-hot);
+    color: var(--ink-dim);
+  }
+  .btn-secondary:hover { border-color: var(--ink); color: var(--ink); }
+
+  .btn-danger {
+    background: transparent;
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: var(--red); color: var(--bg); }
+
+  .btn-ghost {
+    border-color: transparent;
+    color: var(--ink-dim);
+  }
+  .btn-ghost:hover { color: var(--ember); border-color: transparent; background: var(--ember-wash); }
+
+  /* ----- Inputs ----- */
+  .input-field {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--line-hot);
+    border-radius: 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--ink);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  [data-theme="light"] .input-field {
+    background: var(--bg);
+    border-color: var(--line);
+  }
+  .input-field::placeholder { color: var(--ink-faint); }
+  .input-field:focus {
+    outline: none;
+    border-color: var(--ember);
+    box-shadow: 0 0 0 1px var(--ember-glow);
+  }
+  .input-field:disabled { opacity: .55; cursor: not-allowed; }
+
+  /* Form micro-label — uppercase tracked-out mono, used above inputs */
+  .label-micro {
+    display: block;
+    margin-bottom: 6px;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-dim);
+  }
+
+  /* ----- Cards / surfaces ----- */
+  .surface {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 0;
+  }
+  .surface-sunken {
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    border-radius: 0;
+  }
+
+  /* Card with optional ember left-edge accent on hover */
+  .card-instrument {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-hot);
+    border-radius: 0;
+    padding: 22px;
+    transition: border-left-color .15s, background .15s;
+  }
+  .card-instrument:hover {
+    border-left-color: var(--ember);
+    background: var(--bg-3);
+  }
+
+  /* ----- Section header ----- */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+  }
+
+  /* ----- Badge (outlined, currentColor border) ----- */
+  .badge-instrument {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border: 1px solid currentColor;
+    border-radius: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    background: transparent;
+    line-height: 1.3;
+  }
+
+  /* ----- Modal panel ----- */
+  .modal-panel {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--ember);
+    border-radius: 0;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  [data-theme="light"] .modal-panel {
+    box-shadow: 0 20px 60px rgba(20,17,13,0.18);
+  }
+
+  /* ----- Empty state ----- */
+  .empty-instrument {
+    border: 1px dashed var(--line-hot);
+    background: var(--bg-2);
+    padding: 48px 24px;
+    text-align: center;
+    border-radius: 0;
+  }
+
+  /* ----- Toast (left ember bar) ----- */
+  .toast-instrument {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--ember);
+    border-radius: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    color: var(--ink);
+  }
+  [data-theme="light"] .toast-instrument {
+    box-shadow: 0 4px 16px rgba(20,17,13,0.10);
+  }
+
+  /* ----- Theme toggle pill ----- */
+  .theme-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    border-radius: 0;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .theme-pill:hover { border-color: var(--ember); color: var(--ember); }
+
+  /* ----- Sidebar nav item ----- */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    border-left: 3px solid transparent;
+    transition: color .15s, background .15s, border-left-color .15s;
+  }
+  .nav-item:hover { color: var(--ink); background: var(--bg-3); }
+  .nav-item-active {
+    color: var(--ember);
+    background: var(--ember-wash);
+    border-left-color: var(--ember);
+  }
+
+  /* ----- Data-table-aware utilities ----- */
+  .tnum-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 }

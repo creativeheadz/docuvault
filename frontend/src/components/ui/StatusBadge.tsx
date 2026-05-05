@@ -13,6 +13,6 @@ export function StatusBadge({ date, warningDays = 30 }: StatusBadgeProps) {
   const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
   if (diffDays < 0) return <Badge variant="danger">Expired</Badge>
-  if (diffDays <= warningDays) return <Badge variant="warning">Expiring Soon</Badge>
+  if (diffDays <= warningDays) return <Badge variant="warning">Expiring</Badge>
   return <Badge variant="success">Active</Badge>
 }

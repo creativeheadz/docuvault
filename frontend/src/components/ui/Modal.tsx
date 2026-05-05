@@ -31,18 +31,36 @@ export function Modal({ open, onClose, title, children, className, size = 'md' }
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className={cn('relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full mx-4 max-h-[90vh] overflow-auto', sizeMap[size], className)}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[6vh]">
+      <div
+        className="fixed inset-0 bg-black/75 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          'modal-panel relative w-full mx-4 max-h-[88vh] overflow-auto',
+          sizeMap[size],
+          className
+        )}
+      >
         {title && (
-          <div className="flex items-center justify-between p-6 pb-0">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-            <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <div className="flex items-center justify-between px-7 pt-6 pb-3 border-b border-line">
+            <h2
+              className="font-serif italic text-2xl text-ink m-0"
+              style={{ fontVariationSettings: '"opsz" 144, "SOFT" 80, "wght" 400' }}
+            >
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-ink-faint hover:text-ember transition-colors"
+              aria-label="Close"
+            >
               <X className="h-5 w-5" />
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="px-7 py-6">{children}</div>
       </div>
     </div>
   )
