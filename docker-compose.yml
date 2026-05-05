@@ -30,6 +30,10 @@ services:
       SEED_USERNAME: ${SEED_USERNAME:-andrei.trimbitas}
       SEED_PASSWORD: ${SEED_PASSWORD:-9Palo)pad}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      MEMPALACE_URL: ${MEMPALACE_URL:-http://192.168.1.98:8765/mcp/}
+      MEMPALACE_TOKEN: ${MEMPALACE_TOKEN:-}
     ports:
       - "8000:8000"
     volumes:

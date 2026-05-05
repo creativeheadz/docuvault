@@ -4,7 +4,7 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import {
   LayoutDashboard, Building2, MapPin, Users, Server, KeyRound,
   Globe, ShieldCheck, FileText, Puzzle, CheckSquare, BookOpen,
-  Search, Settings, ChevronLeft, ChevronRight, BarChart3, Flag,
+  Search, Settings, ChevronLeft, ChevronRight, BarChart3, Flag, Boxes,
 } from 'lucide-react'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/locations',         label: 'Locations',      icon: MapPin },
   { path: '/contacts',          label: 'Contacts',       icon: Users },
   { path: '/configurations',    label: 'Configurations', icon: Server },
+  { path: '/systems',           label: 'Systems',        icon: Boxes },
   { path: '/passwords',         label: 'Passwords',      icon: KeyRound },
   { path: '/domains',           label: 'Domains',        icon: Globe },
   { path: '/ssl-certificates',  label: 'SSL Certs',      icon: ShieldCheck },

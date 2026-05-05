@@ -344,3 +344,43 @@ export interface MeshRemoteUrls {
   terminal: string | null
   files: string | null
 }
+
+export interface System {
+  id: string
+  name: string
+  slug: string
+  category: string | null
+  short_description: string | null
+  body: string | null
+  tags: string[]
+  snippets: Record<string, unknown>
+  palace_drawer_ids: string[]
+  status: 'draft' | 'active' | 'archived' | string
+  color: string | null
+  icon: string | null
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+}
+
+export interface SystemChatMessage {
+  id: string
+  system_id: string
+  role: 'user' | 'assistant'
+  content: Array<Record<string, unknown>>
+  created_at: string
+}
+
+export interface SystemToolEvent {
+  name: string
+  input: Record<string, unknown>
+  output: unknown
+}
+
+export interface SystemChatTurn {
+  assistant_text: string
+  tool_events: SystemToolEvent[]
+  system: System
+  user_message: SystemChatMessage
+  assistant_message: SystemChatMessage
+}

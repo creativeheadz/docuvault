@@ -6,6 +6,7 @@ A comprehensive IT documentation and asset management platform built with FastAP
 
 - **Organizations** — Manage client/company records with hierarchical structure
 - **Configurations** — Track servers, workstations, switches, and other devices
+- **Systems** — AI-powered, chat-driven documentation for VMs, services, SaaS, and infrastructure. Co-author records with Claude over your MemPalace as the knowledge base
 - **Passwords** — Encrypted credential storage with access logging
 - **Domains & SSL Certificates** — Monitor registrations and expiration dates
 - **Documents** — Rich text editor with versioning, folders, and templates
@@ -19,6 +20,7 @@ A comprehensive IT documentation and asset management platform built with FastAP
 - **Audit Logging** — Full activity trail with field-level change tracking
 - **Search** — Full-text search across all entity types
 - **MeshCentral Integration** — Sync devices, view online/offline status, one-click remote desktop and terminal sessions
+- **MemPalace + Anthropic Integration** — Tool-using LLM agent that searches your memory palace and drafts system records as you chat
 - **Two-Factor Authentication** — TOTP-based 2FA with QR code setup
 - **Dark Mode** — Toggle between light and dark themes
 - **Command Palette** — Keyboard-driven navigation (Ctrl+K)
@@ -84,6 +86,10 @@ Edit `.env` and update the following values:
 | `SEED_USERNAME` | Default admin username | `andrei.trimbitas` |
 | `SEED_PASSWORD` | Default admin password | `change_me` |
 | `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:3000` |
+| `ANTHROPIC_API_KEY` | Anthropic API key for the Systems chat (optional) | _empty_ |
+| `ANTHROPIC_MODEL` | Anthropic model id | `claude-sonnet-4-6` |
+| `MEMPALACE_URL` | FastMCP HTTP endpoint of your MemPalace server (optional) | _empty_ |
+| `MEMPALACE_TOKEN` | Bearer token for MemPalace | _empty_ |
 
 Generate an encryption key:
 
@@ -158,12 +164,12 @@ docuvault/
 │   ├── pyproject.toml
 │   ├── alembic.ini
 │   ├── alembic/
-│   │   └── versions/          # Database migrations (001–005)
+│   │   └── versions/          # Database migrations (001–006)
 │   └── app/
 │       ├── main.py            # FastAPI application entry point
 │       ├── config.py          # Settings from environment
-│       ├── api/v1/            # API route handlers (23 routers)
-│       ├── models/            # SQLAlchemy ORM models (30 models)
+│       ├── api/v1/            # API route handlers (24 routers)
+│       ├── models/            # SQLAlchemy ORM models (32 models)
 │       ├── schemas/           # Pydantic request/response schemas
 │       ├── services/          # Business logic layer
 │       └── core/              # Database, auth, encryption utilities
@@ -215,6 +221,7 @@ All endpoints are prefixed with `/api/v1`. Authentication is via Bearer token (J
 | `/settings` | CRUD | App settings, sidebar, IP whitelist |
 | `/mfa` | Setup/verify | Two-factor authentication |
 | `/meshcentral` | Settings, sync, remote URLs | MeshCentral integration |
+| `/systems` | CRUD + chat | Chat-driven system documentation backed by Anthropic + MemPalace |
 
 Full interactive documentation is available at `/docs` (Swagger UI) when the backend is running.
 
@@ -236,6 +243,42 @@ DocuVault integrates with [MeshCentral](https://meshcentral.com/) for remote dev
 - Online/offline status badges on the Configurations page
 - One-click **Remote Desktop** and **Terminal** buttons that open MeshCentral sessions in a new tab
 - Extra device metadata (agent version, tags, power state) stored in JSONB
+
+## AI-Powered Systems Documentation
+
+The **Systems** page is a chat-first authoring surface for documenting any system in your stack — servers, VMs, SaaS apps, monitoring stacks, secrets vaults, identity providers, anything. Instead of filling a form, you describe the system to the assistant and it drafts the record live.
+
+### How it works
+
+Each chat turn runs a tool-use loop against the [Anthropic Messages API](https://docs.anthropic.com/en/api/messages) with three tools:
+
+| Tool | Purpose |
+|---|---|
+| `search_palace` | Hybrid vector + BM25 search over your [MemPalace](https://github.com/) drawers |
+| `read_palace_drawer` | Fetch a specific drawer's full content |
+| `update_system_draft` | Apply a partial patch to the working record (snippets merge, tags/links replace) |
+
+The full conversation — including `tool_use` and `tool_result` blocks — is persisted in `system_chat_messages`, so context replays across sessions. When a tool patches the draft, the affected fields flash in the live record panel.
+
+### Setup
+
+1. Set `ANTHROPIC_API_KEY` in `.env` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-4-6`).
+2. (Optional) Point `MEMPALACE_URL` at a FastMCP-compatible MemPalace endpoint and supply `MEMPALACE_TOKEN`. The chat works without MemPalace — it just won't pre-load context from your memories.
+3. Restart the backend: `docker compose up -d backend`.
+4. Open `/systems` → **+ New** → start describing the system.
+
+### Data model
+
+`systems` table holds:
+
+- `name`, `slug`, `category`, `short_description`
+- `body` (long-form markdown)
+- `tags` (`text[]`)
+- `snippets` (`jsonb` — short structured facts: hostname, ports, urls, owner, vault refs, etc.)
+- `palace_drawer_ids` (`text[]` — links back to MemPalace drawers used as evidence)
+- `status` (`draft` / `active` / `archived`)
+
+Records are the single source of truth; export to markdown or other formats happens at the read layer.
 
 ## License
 

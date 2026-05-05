@@ -28,6 +28,7 @@ from app.models.password_share import PasswordShareLink
 from app.models.sidebar_item import SidebarItem
 from app.models.app_settings import AppSettings
 from app.models.ip_whitelist import IPWhitelist
+from app.models.system import System, SystemChatMessage
 
 __all__ = [
     "User", "Organization", "Location", "Contact", "Configuration",
@@ -38,4 +39,5 @@ __all__ = [
     "Checklist", "ChecklistItem", "Runbook", "RunbookStep",
     "Flag", "Webhook", "PasswordShareLink",
     "SidebarItem", "AppSettings", "IPWhitelist",
+    "System", "SystemChatMessage",
 ]

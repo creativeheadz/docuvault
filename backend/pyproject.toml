@@ -21,6 +21,7 @@ dependencies = [
     "diff-match-patch>=20230430",
     "psycopg2-binary>=2.9.0",
     "websockets>=13.0",
+    "anthropic>=0.40.0",
 ]
 
 [build-system]

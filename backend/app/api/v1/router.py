@@ -23,6 +23,7 @@ from app.api.v1.webhooks import router as webhook_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.mfa import router as mfa_router
 from app.api.v1.meshcentral import router as mesh_router
+from app.api.v1.systems import router as systems_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -48,3 +49,4 @@ api_router.include_router(webhook_router)
 api_router.include_router(settings_router)
 api_router.include_router(mfa_router)
 api_router.include_router(mesh_router)
+api_router.include_router(systems_router)

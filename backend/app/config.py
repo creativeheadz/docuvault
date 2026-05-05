@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
     UPLOAD_DIR: str = "/app/uploads"
 
+    # AI chat for the Systems documentation page
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
+    MEMPALACE_URL: str = ""
+    MEMPALACE_TOKEN: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

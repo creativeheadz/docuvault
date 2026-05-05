@@ -65,6 +65,16 @@ The FastAPI `lifespan` shells out to `alembic upgrade head` *before* the app sta
 ### MeshCentral integration
 `api/v1/meshcentral.py` + `services/meshcentral_service.py` talk to a live MeshCentral server via the `websockets` package (not HTTP). Sync imports device groups → organizations and devices → configurations; remote desktop / terminal URLs are minted on demand and opened in a new tab from the frontend. Credentials are stored encrypted in app settings.
 
+### Systems chat (Anthropic + MemPalace)
+`api/v1/systems.py` + `services/system_service.py` + `services/anthropic_chat.py` + `services/mempalace_client.py` provide a chat-driven authoring surface for the `systems` resource.
+
+- Each chat turn (`POST /api/v1/systems/{id}/chat`) runs a tool-use loop against the Anthropic Messages API. The model has three tools: `search_palace`, `read_palace_drawer`, `update_system_draft`.
+- The full conversation is persisted in `system_chat_messages` as Anthropic-style content blocks (`text`, `tool_use`, `tool_result`). Each new turn replays the entire history so context survives across sessions. Don't store summaries — keep the raw blocks.
+- `update_system_draft` is the only mutation tool. `snippets` patches **merge** key-by-key (use `null` to delete a key); `tags` and `palace_drawer_ids` **replace**; other scalar fields replace. The diff that was actually applied is returned in the tool result so the frontend can flash changed fields.
+- `services/mempalace_client.py` is a minimal MCP streamable-HTTP client (httpx, `follow_redirects=True`, JSON or SSE response parsing). It re-initializes per call rather than holding a session — palace calls are infrequent enough that the overhead is fine, and statelessness keeps the implementation simple. Failures degrade gracefully so the chat still works without MemPalace.
+- Required env: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default `claude-sonnet-4-6`). Optional: `MEMPALACE_URL`, `MEMPALACE_TOKEN`.
+- **Frontend nginx proxy**: `frontend/nginx.conf` sets `proxy_read_timeout 300s` for `/api/` because chat turns can run multiple LLM rounds and the default 60s causes 504s. If you tighten this, the chat will start timing out on multi-tool turns.
+
 ### Frontend (`frontend/src/`)
 - **Routing** (`App.tsx`): all authenticated routes are children of `<RequireAuth><AppLayout/></RequireAuth>`. Auth state lives in `store/authStore.ts` (zustand, persisted); `hooks/useAuth.ts` rehydrates the user on mount.
 - **Server state**: TanStack React Query, single `QueryClient` in `App.tsx` with `retry: 1, refetchOnWindowFocus: false`.
@@ -75,10 +85,18 @@ The FastAPI `lifespan` shells out to `alembic upgrade head` *before* the app sta
 - **Forms**: React Hook Form + Zod resolvers. Reusable primitives are in `components/ui/` — prefer composing them over hand-rolling inputs.
 
 ### Adding a new resource (end-to-end checklist)
-1. SQLAlchemy model in `backend/app/models/`.
+1. SQLAlchemy model in `backend/app/models/`, then re-export it from `backend/app/models/__init__.py`.
 2. Alembic revision (`alembic revision --autogenerate -m "add_<resource>"`); review the diff before committing.
 3. Pydantic schemas in `backend/app/schemas/`.
 4. Service in `backend/app/services/`.
 5. Router in `backend/app/api/v1/<resource>.py`, then register it in `backend/app/api/v1/router.py`.
 6. Frontend API module in `frontend/src/api/<resource>.ts`.
 7. Page in `frontend/src/pages/`, plus a `<Route>` in `App.tsx` and a sidebar entry where appropriate.
+
+### Working with the Anthropic SDK
+The `anthropic` Python SDK (`AsyncAnthropic`) is used for the systems chat. Tool definitions live in `services/anthropic_chat.py` next to the orchestration loop. When changing tool schemas:
+
+- The `input_schema` is JSON Schema. Keep it tight — additional/loose properties confuse the model and inflate token usage.
+- Model defaults to `claude-sonnet-4-6` for chat (good cost/latency balance with tool use). For one-shot heavy reasoning, override via `ANTHROPIC_MODEL`.
+- The orchestrator caps tool-use rounds at 8 per turn — bump only if you have a reason; runaway loops eat tokens fast.
+- Tool results are serialized as JSON-stringified `tool_result` blocks. The model handles structured JSON well; don't pre-summarize results in Python.
