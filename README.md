@@ -280,6 +280,12 @@ The full conversation — including `tool_use` and `tool_result` blocks — is p
 
 Records are the single source of truth; export to markdown or other formats happens at the read layer.
 
+## Roadmap
+
+Ideas under exploration — not yet built:
+
+- **Live SSL/TLS expiration probe** — On the SSL Certificates page, add a per-row "Refresh" button that opens a TLS connection to the certificate's hostname (or the linked domain), reads the live certificate, and overwrites the stored `expires_at` with the real `notAfter`. Removes the manual-entry drift problem and turns the page from passive log into authoritative monitor.
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
