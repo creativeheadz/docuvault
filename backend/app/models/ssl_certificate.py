@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import String, Text, Date, DateTime, ForeignKey
+from sqlalchemy import Integer, String, Text, Date, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,5 +20,14 @@ class SSLCertificate(TimestampMixin, Base):
     key_algorithm: Mapped[str | None] = mapped_column(String(100), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Live-probe metadata (filled by POST /ssl-certificates/{id}/probe)
+    host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    subject_cn: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    signature_algorithm: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    key_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    serial_number: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_probed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", backref="ssl_certificates", lazy="selectin")

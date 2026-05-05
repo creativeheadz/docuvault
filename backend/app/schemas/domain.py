@@ -34,7 +34,15 @@ class DomainResponse(BaseModel):
     auto_renew: bool
     dns_records: dict | None
     notes: str | None
+    last_probed_at: datetime | None = None
+    whois_data: dict | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class DomainProbeResponse(BaseModel):
+    domain: DomainResponse
+    nameservers: list[str]
+    status: list[str]

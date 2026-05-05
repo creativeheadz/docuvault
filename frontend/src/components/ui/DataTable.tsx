@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './Button'
@@ -25,10 +25,13 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void
   emptyMessage?: string
   emptyIcon?: ReactNode
+  /** When provided and returns non-null, an extra row is inserted below the
+   * data row spanning all columns. Used for expandable detail panels. */
+  renderExpanded?: (item: T) => ReactNode | null
 }
 
 export function DataTable<T extends { id: string }>({
-  columns, data, loading, page = 1, totalPages = 1, total = 0, onPageChange, onRowClick, emptyMessage = 'No records', emptyIcon,
+  columns, data, loading, page = 1, totalPages = 1, total = 0, onPageChange, onRowClick, emptyMessage = 'No records', emptyIcon, renderExpanded,
 }: DataTableProps<T>) {
   if (loading) {
     return (
@@ -60,30 +63,39 @@ export function DataTable<T extends { id: string }>({
             </tr>
           </thead>
           <tbody>
-            {data.map((item, i) => (
-              <tr
-                key={item.id}
-                onClick={() => onRowClick?.(item)}
-                className={cn(
-                  'border-b border-line/60 transition-colors',
-                  onRowClick && 'cursor-pointer hover:bg-surface-sunken',
-                  i === data.length - 1 && 'border-b-0'
-                )}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
+            {data.map((item, i) => {
+              const expanded = renderExpanded?.(item)
+              return (
+                <Fragment key={item.id}>
+                  <tr
+                    onClick={() => onRowClick?.(item)}
                     className={cn(
-                      'py-2.5 px-4 text-sm text-ink',
-                      col.numeric && 'text-right tnum-mono',
-                      col.className
+                      'border-b border-line/60 transition-colors',
+                      onRowClick && 'cursor-pointer hover:bg-surface-sunken',
+                      !expanded && i === data.length - 1 && 'border-b-0'
                     )}
                   >
-                    {col.render ? col.render(item) : (item as Record<string, unknown>)[col.key] as ReactNode}
-                  </td>
-                ))}
-              </tr>
-            ))}
+                    {columns.map((col) => (
+                      <td
+                        key={col.key}
+                        className={cn(
+                          'py-2.5 px-4 text-sm text-ink',
+                          col.numeric && 'text-right tnum-mono',
+                          col.className
+                        )}
+                      >
+                        {col.render ? col.render(item) : (item as Record<string, unknown>)[col.key] as ReactNode}
+                      </td>
+                    ))}
+                  </tr>
+                  {expanded && (
+                    <tr className={cn('border-b border-line/60', i === data.length - 1 && 'border-b-0')}>
+                      <td colSpan={columns.length} className="p-0">{expanded}</td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>

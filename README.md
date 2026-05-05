@@ -282,13 +282,18 @@ Records are the single source of truth; export to markdown or other formats happ
 
 ## Roadmap
 
-Ideas under exploration — not yet built:
+### Shipped
 
-- **Live SSL/TLS expiration probe** — On the SSL Certificates page, add a per-row "Refresh" button that opens a TLS connection to the certificate's hostname (or the linked domain), reads the live certificate, and overwrites the stored `expires_at` with the real `notAfter`. Removes the manual-entry drift problem and turns the page from passive log into authoritative monitor.
+- ✅ **Live SSL/TLS expiration probe** — TLS-handshake button on each SSL Certificate row pulls the live `notAfter` (and issuer/SANs/key info) from the host. Wildcard CNs are auto-stripped; an explicit `host`/`port` override is supported on each record.
+- ✅ **Cert chain inspection** — Expandable details row on the SSL Certificates page shows subject, issuer, serial, signature algorithm, key algorithm + size, full SAN list, and a colored health badge (red / amber / green) keyed off days-until-expiry.
+- ✅ **Domain expiry auto-refresh** — RDAP lookup via [rdap.org](https://rdap.org/) bootstrap pulls registrar + expiration date for the Domains page. Raw RDAP response is stored in `whois_data` (jsonb) for later UI uses (nameservers, status flags surfaced in the expandable details panel).
+- ✅ **Hostname auto-resolve when adding a Configuration** — Wand button next to the Hostname field (and on-blur if IP is empty) calls the backend's `getaddrinfo` and pre-fills the IP. Reports A/AAAA counts on success.
+
+### Under exploration
+
 - **MeshCentral deep-link to the correct device** — Today the Remote Desktop / Terminal buttons on the Configurations page open MeshCentral but land on a generic disconnected Desktop tab instead of the selected node. The URL built in `build_remote_url` (`?viewmode=11&gotonode=<id>`) needs the node id format MeshCentral actually accepts — likely the full `node//<meshid>/<id>` form, or a different param name on newer MeshCentral versions. Investigate against the running server, then fix so the session opens already attached to the device.
-- **Domain expiry auto-refresh** — Same pattern as the SSL probe but for the Domains page: query RDAP (with WHOIS as a fallback for TLDs that don't speak RDAP) to pull the registrar, registration date, and expiration date. Per-row refresh button plus an optional nightly job that flags domains expiring inside a configurable window.
-- **Hostname auto-resolve when adding a Configuration** — When a hostname is typed into the Configuration form, kick off a backend DNS lookup and pre-fill the IP address field. Show both A and AAAA results when present; let the user pick. Saves the manual `nslookup` round-trip and keeps records honest.
-- **Cert chain inspection** — Beyond the expiry date, fetch and store the full chain: issuer, SANs, key algorithm/size, signature algorithm, and a derived "healthy?" badge that flags weak algorithms, mismatched SANs, near expiry, or self-signed in production. Renders as an expandable detail row on the SSL Certificates page.
+- **Keycloak integration** — Replace the seed-user JWT auth with OIDC against a self-hosted Keycloak realm. Carries SSO across the rest of the Old Forge stack.
+- **Infisical secrets back-reference** — Let Password records optionally point at an Infisical secret path so the source of truth lives in Infisical and DocuVault keeps the operator-facing metadata (description, last-rotated, owner, audit log) without duplicating the actual value.
 
 ## License
 

@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getConfigurations, createConfiguration, updateConfiguration, deleteConfiguration } from '@/api/configurations'
 import { getOrganizations } from '@/api/organizations'
+import { dnsLookup } from '@/api/dns'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { Server, Plus, Pencil, Trash2, Monitor, Terminal } from 'lucide-react'
+import { Server, Plus, Pencil, Trash2, Monitor, Terminal, Wand2, Loader2 } from 'lucide-react'
 import type { Configuration } from '@/types'
 import { getMeshRemoteUrls } from '@/api/meshcentral'
 import { MeshStatusBadge } from '@/components/ui/MeshStatusBadge'
@@ -17,6 +18,30 @@ export default function ConfigurationsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Configuration | null>(null)
   const [form, setForm] = useState({ name: '', organization_id: '', configuration_type: '', hostname: '', ip_address: '', serial_number: '', operating_system: '', manufacturer: '', model: '', notes: '' })
+  const [resolving, setResolving] = useState(false)
+
+  const resolveHostname = async () => {
+    const host = form.hostname.trim()
+    if (!host) return
+    setResolving(true)
+    try {
+      const result = await dnsLookup(host)
+      const ips = [...result.a, ...result.aaaa]
+      if (ips.length === 0) {
+        toast.error('No DNS records found')
+        return
+      }
+      // Prefer the first A record; fall back to the first AAAA
+      setForm((f) => ({ ...f, ip_address: result.a[0] || result.aaaa[0] }))
+      if (ips.length > 1) toast.success(`Resolved to ${ips[0]} (+${ips.length - 1} more)`)
+      else toast.success(`Resolved to ${ips[0]}`)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Lookup failed'
+      toast.error(msg)
+    } finally {
+      setResolving(false)
+    }
+  }
 
   const { data: configs = [], isLoading } = useQuery({ queryKey: ['configurations'], queryFn: () => getConfigurations() })
   const { data: orgs } = useQuery({ queryKey: ['organizations', 1, ''], queryFn: () => getOrganizations({ page: 1, page_size: 100 }) })
@@ -84,10 +109,35 @@ export default function ConfigurationsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Type" value={form.configuration_type} onChange={(e) => setForm({ ...form, configuration_type: e.target.value })} placeholder="e.g., Server, Workstation, Switch" />
-            <Input label="Hostname" value={form.hostname} onChange={(e) => setForm({ ...form, hostname: e.target.value })} />
+            <div className="relative">
+              <Input
+                label="Hostname"
+                value={form.hostname}
+                onChange={(e) => setForm({ ...form, hostname: e.target.value })}
+                onBlur={() => { if (form.hostname && !form.ip_address) resolveHostname() }}
+              />
+              {form.hostname && (
+                <button
+                  type="button"
+                  onClick={resolveHostname}
+                  disabled={resolving}
+                  className="absolute right-2 top-[28px] p-1 hover:bg-[var(--ember-wash)] rounded transition-colors disabled:opacity-50"
+                  title="Resolve hostname to IP via DNS"
+                >
+                  {resolving
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: 'var(--ember)' }} />
+                    : <Wand2 className="h-3.5 w-3.5" style={{ color: 'var(--ember)' }} />}
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="IP Address" value={form.ip_address} onChange={(e) => setForm({ ...form, ip_address: e.target.value })} />
+            <Input
+              label="IP Address"
+              value={form.ip_address}
+              onChange={(e) => setForm({ ...form, ip_address: e.target.value })}
+              hint={resolving ? 'Resolving…' : undefined}
+            />
             <Input label="Serial Number" value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} />
           </div>
           <div className="grid grid-cols-3 gap-4">

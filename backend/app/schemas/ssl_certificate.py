@@ -34,7 +34,27 @@ class SSLCertificateResponse(BaseModel):
     sans: list[str] | None
     key_algorithm: str | None
     notes: str | None
+    host: str | None = None
+    port: int | None = None
+    subject_cn: str | None = None
+    signature_algorithm: str | None = None
+    key_size: int | None = None
+    serial_number: str | None = None
+    last_probed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SSLProbeRequest(BaseModel):
+    host: str | None = None
+    port: int | None = None
+
+
+class SSLProbeResponse(BaseModel):
+    certificate: SSLCertificateResponse
+    tls_version: str | None
+    cipher: str | None
+    is_expired: bool
+    days_until_expiry: int

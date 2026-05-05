@@ -1,5 +1,5 @@
 import client from './client'
-import type { SSLCertificate } from '@/types'
+import type { SSLCertificate, SSLProbeResult } from '@/types'
 
 export const getSSLCertificates = async (params?: Record<string, unknown>) => {
   const { data } = await client.get<SSLCertificate[]>('/ssl-certificates', { params })
@@ -23,4 +23,9 @@ export const updateSSLCertificate = async (id: string, body: Partial<SSLCertific
 
 export const deleteSSLCertificate = async (id: string) => {
   await client.delete(`/ssl-certificates/${id}`)
+}
+
+export const probeSSLCertificate = async (id: string, body?: { host?: string; port?: number }) => {
+  const { data } = await client.post<SSLProbeResult>(`/ssl-certificates/${id}/probe`, body || {})
+  return data
 }

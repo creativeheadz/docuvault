@@ -1,5 +1,5 @@
 import client from './client'
-import type { Domain } from '@/types'
+import type { Domain, DomainProbeResult } from '@/types'
 
 export const getDomains = async (params?: Record<string, unknown>) => {
   const { data } = await client.get<Domain[]>('/domains', { params })
@@ -23,4 +23,9 @@ export const updateDomain = async (id: string, body: Partial<Domain>) => {
 
 export const deleteDomain = async (id: string) => {
   await client.delete(`/domains/${id}`)
+}
+
+export const probeDomain = async (id: string) => {
+  const { data } = await client.post<DomainProbeResult>(`/domains/${id}/probe`)
+  return data
 }

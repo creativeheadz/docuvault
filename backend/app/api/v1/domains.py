@@ -8,7 +8,10 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.domain import Domain
 from app.models.user import User
-from app.schemas.domain import DomainCreate, DomainUpdate, DomainResponse
+from datetime import datetime, timezone
+
+from app.schemas.domain import DomainCreate, DomainUpdate, DomainResponse, DomainProbeResponse
+from app.services.domain_probe import probe_domain
 
 router = APIRouter(prefix="/domains", tags=["domains"])
 
@@ -66,3 +69,40 @@ async def delete_domain(item_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
     if not item:
         raise HTTPException(status_code=404, detail="Domain not found")
     await db.delete(item)
+
+
+@router.post("/{item_id}/probe", response_model=DomainProbeResponse)
+async def probe_domain_endpoint(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Look up the domain via RDAP (rdap.org) and overwrite registrar +
+    expiration date with the authoritative values."""
+    result = await db.execute(select(Domain).where(Domain.id == item_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Domain not found")
+
+    try:
+        info = await probe_domain(item.domain_name)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"RDAP probe failed: {e}")
+
+    if info["registrar"]:
+        item.registrar = info["registrar"]
+    if info["registration_date"]:
+        item.registration_date = info["registration_date"]
+    if info["expiration_date"]:
+        item.expiration_date = info["expiration_date"]
+    item.whois_data = info["raw"]
+    item.last_probed_at = datetime.now(timezone.utc)
+
+    await db.flush()
+    await db.refresh(item)
+
+    return DomainProbeResponse(
+        domain=DomainResponse.model_validate(item),
+        nameservers=info["nameservers"],
+        status=info["status"],
+    )

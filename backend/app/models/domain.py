@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import String, Text, Boolean, Date, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -19,5 +20,9 @@ class Domain(TimestampMixin, Base):
     dns_records: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # RDAP/WHOIS probe metadata
+    last_probed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    whois_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     organization = relationship("Organization", backref="domains", lazy="selectin")

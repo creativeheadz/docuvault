@@ -138,8 +138,16 @@ export interface Domain {
   auto_renew: boolean
   dns_records: Record<string, unknown> | null
   notes: string | null
+  last_probed_at: string | null
+  whois_data: Record<string, unknown> | null
   created_at: string
   updated_at: string
+}
+
+export interface DomainProbeResult {
+  domain: Domain
+  nameservers: string[]
+  status: string[]
 }
 
 export interface SSLCertificate {
@@ -152,8 +160,29 @@ export interface SSLCertificate {
   sans: string[] | null
   key_algorithm: string | null
   notes: string | null
+  host: string | null
+  port: number | null
+  subject_cn: string | null
+  signature_algorithm: string | null
+  key_size: number | null
+  serial_number: string | null
+  last_probed_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface SSLProbeResult {
+  certificate: SSLCertificate
+  tls_version: string | null
+  cipher: string | null
+  is_expired: boolean
+  days_until_expiry: number
+}
+
+export interface DnsLookupResult {
+  hostname: string
+  a: string[]
+  aaaa: string[]
 }
 
 export interface FlexibleAssetType {
