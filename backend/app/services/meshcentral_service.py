@@ -99,9 +99,18 @@ class MeshCentralClient:
     def build_remote_url(self, node_id: str, viewmode: int = 11) -> str:
         """Build a remote session URL.
 
-        viewmode: 11=Desktop, 12=Terminal, 15=Files
+        viewmode: 11=Desktop, 12=Terminal, 13=Files
+
+        MeshCentral's `gotonode` URL param expects the short id — i.e. the
+        base64 hash portion of the node id, not the full `node//<hash>`
+        form (see meshmail.js: `nodeid.split('/')[2]`). The id uses the
+        URL-safe base64 substitutions `+` → `@` and `/` → `$`; these must
+        appear LITERALLY in the URL because MeshCentral's `parseUriArgs`
+        does not URL-decode values, so `%40` would never match `@` during
+        the node lookup.
         """
-        params = urlencode({"viewmode": viewmode, "gotonode": node_id})
+        short_id = node_id.removeprefix("node//")
+        params = urlencode({"viewmode": viewmode, "gotonode": short_id}, safe="@$")
         return f"{self.base_url}/?{params}"
 
 

@@ -288,10 +288,10 @@ Records are the single source of truth; export to markdown or other formats happ
 - ✅ **Cert chain inspection** — Expandable details row on the SSL Certificates page shows subject, issuer, serial, signature algorithm, key algorithm + size, full SAN list, and a colored health badge (red / amber / green) keyed off days-until-expiry.
 - ✅ **Domain expiry auto-refresh** — RDAP lookup via [rdap.org](https://rdap.org/) bootstrap pulls registrar + expiration date for the Domains page. Raw RDAP response is stored in `whois_data` (jsonb) for later UI uses (nameservers, status flags surfaced in the expandable details panel).
 - ✅ **Hostname auto-resolve when adding a Configuration** — Wand button next to the Hostname field (and on-blur if IP is empty) calls the backend's `getaddrinfo` and pre-fills the IP. Reports A/AAAA counts on success.
+- ✅ **MeshCentral deep-link to the correct device** — `build_remote_url` now strips the `node//` prefix from the stored node id before passing it to `gotonode`, matching the format MeshCentral itself uses in its device-help email template (`nodeid.split('/')[2]`). Files viewmode also corrected from 15 → 13. Remote Desktop / Terminal / Files buttons now open the session attached to the right node.
 
 ### Under exploration
 
-- **MeshCentral deep-link to the correct device** — Today the Remote Desktop / Terminal buttons on the Configurations page open MeshCentral but land on a generic disconnected Desktop tab instead of the selected node. The URL built in `build_remote_url` (`?viewmode=11&gotonode=<id>`) needs the node id format MeshCentral actually accepts — likely the full `node//<meshid>/<id>` form, or a different param name on newer MeshCentral versions. Investigate against the running server, then fix so the session opens already attached to the device.
 - **Keycloak integration** — Replace the seed-user JWT auth with OIDC against a self-hosted Keycloak realm. Carries SSO across the rest of the Old Forge stack.
 - **Infisical secrets back-reference** — Let Password records optionally point at an Infisical secret path so the source of truth lives in Infisical and DocuVault keeps the operator-facing metadata (description, last-rotated, owner, audit log) without duplicating the actual value.
 

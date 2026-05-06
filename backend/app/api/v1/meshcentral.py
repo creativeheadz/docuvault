@@ -155,5 +155,5 @@ async def get_remote_urls(
     return MeshRemoteUrls(
         desktop=client.build_remote_url(config.mesh_node_id, viewmode=11),
         terminal=client.build_remote_url(config.mesh_node_id, viewmode=12),
-        files=client.build_remote_url(config.mesh_node_id, viewmode=15),
+        files=client.build_remote_url(config.mesh_node_id, viewmode=13),
     )
