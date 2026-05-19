@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Globe, Plus, Pencil, Trash2, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
 import type { Domain, DomainProbeResult } from '@/types'
-import IonosDomainsCard from '@/components/dashboard/IonosDomainsCard'
+import RegistrarDomainsCard from '@/components/dashboard/RegistrarDomainsCard'
 import toast from 'react-hot-toast'
 
 const blank = { domain_name: '', organization_id: '', registrar: '', registration_date: '', expiration_date: '', auto_renew: false, notes: '' }
@@ -203,8 +203,8 @@ export default function DomainsPage() {
         <span>Click <RefreshCw className="h-3 w-3 inline" style={{ color: 'var(--ember)' }} /> to look up the domain via RDAP and overwrite registrar + expiration with the authoritative values. Works for most TLDs that publish RDAP.</span>
       </div>
 
-      {/* Live IONOS domains — hides itself until the API key is set in Settings */}
-      <IonosDomainsCard />
+      {/* Live registrar domains — hides itself until a registrar is set in Settings */}
+      <RegistrarDomainsCard />
 
       <div className="card">
         <DataTable

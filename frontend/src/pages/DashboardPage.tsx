@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore'
 import { getOrganizations } from '@/api/organizations'
 import { Building2, Server, KeyRound, FileText, Globe, ShieldCheck, Users, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import IonosDomainsCard from '@/components/dashboard/IonosDomainsCard'
+import RegistrarDomainsCard from '@/components/dashboard/RegistrarDomainsCard'
 
 const quickLinks = [
   { label: 'Organizations',  icon: Building2,    path: '/organizations'    },
@@ -80,8 +80,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* IONOS domain expiry — live, hides itself until configured */}
-      <IonosDomainsCard />
+      {/* Registrar domain expiry — live, hides itself until configured */}
+      <RegistrarDomainsCard />
 
       {/* Recent organizations */}
       <section className="surface">

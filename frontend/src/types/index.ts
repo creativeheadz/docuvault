@@ -374,32 +374,65 @@ export interface MeshRemoteUrls {
   files: string | null
 }
 
-export interface IonosSettings {
-  prefix: string | null
-  secret_set: boolean
-  configured: boolean
+export interface RegistrarFieldMeta {
+  name: string
+  label: string
+  secret: boolean
+  optional: boolean
+  placeholder: string
 }
 
-export interface IonosTestResult {
+export interface RegistrarProviderStatus {
+  key: string
+  label: string
+  fields: RegistrarFieldMeta[]
+  set_fields: string[]
+  configured: boolean
+  supports_dns: boolean
+}
+
+export interface DnsRecord {
+  id: string | null
+  name: string
+  type: string
+  content: string
+  ttl: number | null
+  prio: number | null
+  disabled: boolean
+  root_name: string | null
+  change_date: string | null
+}
+
+export interface DnsRecordInput {
+  name: string
+  type: string
+  content: string
+  ttl: number | null
+  prio: number | null
+  disabled: boolean
+}
+
+export interface RegistrarTestResult {
   success: boolean
   domain_count: number
   error: string | null
 }
 
-export interface IonosDomain {
-  id: string | null
-  name: string | null
-  tld: string | null
+export interface RegistrarDomain {
+  name: string
+  provider: string
+  provider_label: string
   expiration_date: string | null
   auto_renew: boolean | null
   status: string | null
   days_until_expiry: number | null
+  supports_dns: boolean
 }
 
-export interface IonosDomainsResponse {
-  configured: boolean
-  domains: IonosDomain[]
-  error: string | null
+export interface RegistrarDomainsResponse {
+  configured: string[]
+  domains: RegistrarDomain[]
+  errors: Record<string, string>
 }
 
 export interface System {
