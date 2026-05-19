@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Text, DateTime, ForeignKey
+from sqlalchemy import BigInteger, String, Text, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,7 +28,7 @@ class System(TimestampMixin, Base):
         "SystemChatMessage",
         back_populates="system",
         cascade="all, delete-orphan",
-        order_by="SystemChatMessage.created_at",
+        order_by="SystemChatMessage.seq",
         lazy="selectin",
     )
 
@@ -42,9 +42,19 @@ class SystemChatMessage(TimestampMixin, Base):
         nullable=False,
         index=True,
     )
+    # Monotonic insert sequence — created_at ties on transaction start time
+    # within a single turn, so we order by seq instead.
+    seq: Mapped[int] = mapped_column(
+        BigInteger,
+        server_default=text("nextval('system_chat_messages_seq_seq')"),
+        nullable=False,
+    )
     # role: user | assistant | tool
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     # content blocks as Anthropic-style list (text/tool_use/tool_result blocks)
     content: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
+    # Anthropic usage stats — only populated on assistant rows.
+    # Shape: {input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens, model}
+    usage: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     system = relationship("System", back_populates="chat_messages")

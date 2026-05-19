@@ -87,8 +87,14 @@ async def append_chat_message(
     system_id: uuid.UUID,
     role: str,
     content: list,
+    usage: dict | None = None,
 ) -> SystemChatMessage:
-    msg = SystemChatMessage(system_id=system_id, role=role, content=content)
+    msg = SystemChatMessage(
+        system_id=system_id,
+        role=role,
+        content=content,
+        usage=usage,
+    )
     db.add(msg)
     await db.flush()
     await db.refresh(msg)
@@ -99,6 +105,6 @@ async def list_chat_messages(db: AsyncSession, system_id: uuid.UUID) -> list[Sys
     q = (
         select(SystemChatMessage)
         .where(SystemChatMessage.system_id == system_id)
-        .order_by(SystemChatMessage.created_at)
+        .order_by(SystemChatMessage.seq)
     )
     return list((await db.execute(q)).scalars().all())

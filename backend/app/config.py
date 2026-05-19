@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # AI chat for the Systems documentation page
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
+    ANTHROPIC_MODEL: str = "claude-haiku-4-5"
     MEMPALACE_URL: str = ""
     MEMPALACE_TOKEN: str = ""
 

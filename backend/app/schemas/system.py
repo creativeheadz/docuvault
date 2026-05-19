@@ -73,6 +73,7 @@ class ChatMessageResponse(BaseModel):
     system_id: uuid.UUID
     role: Literal["user", "assistant"]
     content: list[dict[str, Any]]
+    usage: dict[str, Any] | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

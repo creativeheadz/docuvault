@@ -1,5 +1,6 @@
 import uuid
 
+import anthropic
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,10 +131,31 @@ async def post_chat_turn(
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except anthropic.OverloadedError:
+        raise HTTPException(
+            status_code=503,
+            detail="Anthropic API is overloaded — please retry in a moment.",
+        )
+    except anthropic.RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Anthropic rate limit hit — please slow down.",
+        )
+    except anthropic.APIStatusError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Anthropic API error ({e.status_code}): {e.message}",
+        )
 
     persisted: list = []
     for msg in new_messages:
-        row = await system_service.append_chat_message(db, system_id, msg["role"], msg["content"])
+        row = await system_service.append_chat_message(
+            db,
+            system_id,
+            msg["role"],
+            msg["content"],
+            usage=msg.get("usage"),
+        )
         persisted.append(row)
 
     # Find the first user message and the final assistant message we appended this turn.

@@ -374,6 +374,34 @@ export interface MeshRemoteUrls {
   files: string | null
 }
 
+export interface IonosSettings {
+  prefix: string | null
+  secret_set: boolean
+  configured: boolean
+}
+
+export interface IonosTestResult {
+  success: boolean
+  domain_count: number
+  error: string | null
+}
+
+export interface IonosDomain {
+  id: string | null
+  name: string | null
+  tld: string | null
+  expiration_date: string | null
+  auto_renew: boolean | null
+  status: string | null
+  days_until_expiry: number | null
+}
+
+export interface IonosDomainsResponse {
+  configured: boolean
+  domains: IonosDomain[]
+  error: string | null
+}
+
 export interface System {
   id: string
   name: string
@@ -392,11 +420,21 @@ export interface System {
   archived_at: string | null
 }
 
+export interface SystemChatUsage {
+  input_tokens?: number
+  output_tokens?: number
+  cache_creation_input_tokens?: number
+  cache_read_input_tokens?: number
+  model?: string
+  [k: string]: unknown
+}
+
 export interface SystemChatMessage {
   id: string
   system_id: string
   role: 'user' | 'assistant'
   content: Array<Record<string, unknown>>
+  usage?: SystemChatUsage | null
   created_at: string
 }
 

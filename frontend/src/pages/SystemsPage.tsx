@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Boxes, Plus, ArrowRight, Sparkles, Hash } from 'lucide-react'
+import { Boxes, Plus, ArrowRight, Sparkles, Hash, BookOpen, Tag } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
+import { MarkdownView } from '@/components/ui/MarkdownView'
 import { getSystems, createSystem } from '@/api/systems'
 import type { System } from '@/types'
 import SystemDetailPage from './SystemDetailPage'
@@ -34,6 +35,7 @@ function SystemsList() {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ name: '', category: '', short_description: '' })
+  const [previewSystem, setPreviewSystem] = useState<System | null>(null)
 
   const { data: systems = [], isLoading } = useQuery({
     queryKey: ['systems', search],
@@ -116,7 +118,21 @@ function SystemsList() {
                       {s.category || 'uncategorized'}
                     </span>
                   </div>
-                  <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--ember)' }} />
+                  <div className="flex items-center gap-1.5">
+                    {s.body && s.body.trim() && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewSystem(s) }}
+                        className="p-1 -m-1 opacity-50 group-hover:opacity-100 hover:text-[var(--ember)] transition"
+                        style={{ color: 'var(--ink-faint)' }}
+                        title="Preview long-form"
+                        aria-label="Preview long-form"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--ember)' }} />
+                  </div>
                 </div>
                 <h3 className="font-serif italic text-xl leading-tight" style={{ color: 'var(--ink)', fontVariationSettings: '"opsz" 144, "SOFT" 60, "wght" 400' }}>
                   {s.name}
@@ -143,6 +159,59 @@ function SystemsList() {
           ))}
         </div>
       )}
+
+      {/* Long-form preview modal */}
+      <Modal
+        open={!!previewSystem}
+        onClose={() => setPreviewSystem(null)}
+        size="full"
+      >
+        {previewSystem && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-3 -mx-1 -mt-1 pb-3 border-b border-[var(--line)]">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <StatusDot status={previewSystem.status} />
+                  <span className="kicker text-ink-faint">
+                    {previewSystem.category || 'uncategorized'}
+                  </span>
+                </div>
+                <h2
+                  className="font-serif italic text-3xl leading-tight"
+                  style={{ color: 'var(--ink)', fontVariationSettings: '"opsz" 144, "SOFT" 80, "wght" 400' }}
+                >
+                  {previewSystem.name}
+                </h2>
+                {previewSystem.short_description && (
+                  <p className="mt-2 text-sm font-mono leading-relaxed" style={{ color: 'var(--ink-dim)' }}>
+                    {previewSystem.short_description}
+                  </p>
+                )}
+                {previewSystem.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {previewSystem.tags.map((t) => (
+                      <span key={t} className="badge-instrument" style={{ color: 'var(--ink-faint)' }}>
+                        <Tag className="h-2.5 w-2.5 mr-1" /> {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPreviewSystem(null); navigate(`/systems/${previewSystem.id}`) }}
+                className="text-xxs font-mono uppercase tracking-button flex items-center gap-1.5 hover:text-[var(--ember)] transition-colors shrink-0"
+                style={{ color: 'var(--ink-faint)' }}
+              >
+                Open <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="overflow-auto -mx-1" style={{ maxHeight: '72vh' }}>
+              <MarkdownView source={previewSystem.body || ''} />
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create modal */}
       <Modal open={open} onClose={() => setOpen(false)} title="New System" size="md">

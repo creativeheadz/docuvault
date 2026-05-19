@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Send, Loader2, Hash, Wrench, Search, BookOpen, Save, Trash2,
-  ChevronDown, ChevronRight, Sparkles, Brain, FileText, Tag, Database,
+  ChevronDown, ChevronRight, Sparkles, Brain, FileText, Tag, Database, Eye, Pencil,
 } from 'lucide-react'
+import { MarkdownView } from '@/components/ui/MarkdownView'
 import toast from 'react-hot-toast'
 
 import { Button } from '@/components/ui/Button'
@@ -15,6 +16,40 @@ import {
   getSystem, getSystemChat, sendSystemChatMessage, updateSystem, deleteSystem,
 } from '@/api/systems'
 import type { System, SystemChatMessage, SystemToolEvent } from '@/types'
+
+
+// Per-million-token USD pricing. Keep in sync with public Anthropic pricing.
+const PRICING_PER_MTOK: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+  'haiku-4-5':  { input: 1, output: 5,  cacheRead: 0.10, cacheWrite: 1.25 },
+  'sonnet-4-6': { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
+  'opus-4-7':   { input: 15, output: 75, cacheRead: 1.50, cacheWrite: 18.75 },
+}
+
+function priceFor(model?: string) {
+  if (model) {
+    for (const k of Object.keys(PRICING_PER_MTOK)) {
+      if (model.includes(k)) return PRICING_PER_MTOK[k]
+    }
+  }
+  return PRICING_PER_MTOK['haiku-4-5']
+}
+
+function estimateChatCost(messages: SystemChatMessage[]) {
+  let usd = 0
+  let tokens = 0
+  for (const m of messages) {
+    const u = m.usage
+    if (!u) continue
+    const p = priceFor(u.model)
+    const inp = u.input_tokens || 0
+    const out = u.output_tokens || 0
+    const cr = u.cache_read_input_tokens || 0
+    const cw = u.cache_creation_input_tokens || 0
+    usd += (inp * p.input + out * p.output + cr * p.cacheRead + cw * p.cacheWrite) / 1_000_000
+    tokens += inp + out + cr + cw
+  }
+  return { usd, tokens }
+}
 
 
 // ---- helpers ---------------------------------------------------------------
@@ -189,6 +224,83 @@ function FieldKicker({ icon: Icon, label }: { icon: typeof Hash; label: string }
 }
 
 
+function LongFormField({
+  value, onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [mode, setMode] = useState<'edit' | 'preview'>(value ? 'preview' : 'edit')
+  const hasContent = value.trim().length > 0
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <FieldKicker icon={BookOpen} label="Long-Form" />
+        <div className="flex items-center gap-0 border border-[var(--line)]">
+          <button
+            type="button"
+            onClick={() => setMode('edit')}
+            className="px-2.5 py-1 text-xxs font-mono uppercase tracking-button flex items-center gap-1 transition-colors"
+            style={{
+              background: mode === 'edit' ? 'var(--ember-wash)' : 'transparent',
+              color: mode === 'edit' ? 'var(--ember)' : 'var(--ink-faint)',
+              borderRight: '1px solid var(--line)',
+            }}
+          >
+            <Pencil className="h-2.5 w-2.5" /> Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('preview')}
+            className="px-2.5 py-1 text-xxs font-mono uppercase tracking-button flex items-center gap-1 transition-colors"
+            style={{
+              background: mode === 'preview' ? 'var(--ember-wash)' : 'transparent',
+              color: mode === 'preview' ? 'var(--ember)' : 'var(--ink-faint)',
+            }}
+          >
+            <Eye className="h-2.5 w-2.5" /> Preview
+          </button>
+        </div>
+      </div>
+      {mode === 'edit' ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Markdown. Architecture, gotchas, runbooks…"
+          rows={14}
+          className="input-field resize-y font-mono text-xs"
+          style={{ minHeight: '300px' }}
+        />
+      ) : hasContent ? (
+        <div
+          className="px-4 py-3 overflow-auto"
+          style={{
+            border: '1px solid var(--line)',
+            background: 'var(--bg)',
+            minHeight: '300px',
+            maxHeight: '70vh',
+          }}
+        >
+          <MarkdownView source={value} />
+        </div>
+      ) : (
+        <div
+          className="px-4 py-6 text-center text-xxs font-mono"
+          style={{
+            border: '1px dashed var(--line)',
+            color: 'var(--ink-faint)',
+            minHeight: '120px',
+          }}
+        >
+          Nothing to preview yet. Switch to Edit and write some markdown.
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function RecordPanel({
   system, onSave, isSaving, recentlyChangedKeys,
 }: {
@@ -309,14 +421,9 @@ function RecordPanel({
 
         {/* Body */}
         <div className={recentlyChangedKeys.has('body') ? 'flash-field' : ''}>
-          <FieldKicker icon={BookOpen} label="Long-Form" />
-          <textarea
+          <LongFormField
             value={merged.body || ''}
-            onChange={(e) => setField('body', e.target.value || null)}
-            placeholder="Markdown. Architecture, gotchas, runbooks…"
-            rows={14}
-            className="input-field resize-y font-mono text-xs"
-            style={{ minHeight: '300px' }}
+            onChange={(v) => setField('body', v || null)}
           />
         </div>
       </div>
@@ -465,6 +572,7 @@ export default function SystemDetailPage() {
   })
 
   const turns = useMemo(() => flattenMessages(messages), [messages])
+  const cost = useMemo(() => estimateChatCost(messages), [messages])
 
   const sendMut = useMutation({
     mutationFn: (text: string) => sendSystemChatMessage(id!, text),
@@ -560,9 +668,17 @@ export default function SystemDetailPage() {
           <div className="px-6 py-4 border-b border-[var(--line)] flex items-center gap-2" style={{ background: 'var(--bg-2)' }}>
             <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--ember)' }} />
             <span className="kicker" style={{ color: 'var(--ink)' }}>§ Conversation</span>
-            <span className="text-xxs font-mono ml-auto" style={{ color: 'var(--ink-faint)' }}>
-              {turns.length} turn{turns.length === 1 ? '' : 's'}
-            </span>
+            <div className="ml-auto flex items-center gap-3 text-xxs font-mono" style={{ color: 'var(--ink-faint)' }}>
+              <span>{turns.length} turn{turns.length === 1 ? '' : 's'}</span>
+              {cost.tokens > 0 && (
+                <span
+                  title={`${cost.tokens.toLocaleString()} tokens`}
+                  style={{ color: cost.usd > 0.5 ? 'var(--warn)' : 'var(--ink-faint)' }}
+                >
+                  · ${cost.usd < 0.01 ? cost.usd.toFixed(4) : cost.usd.toFixed(3)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">

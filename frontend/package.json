@@ -44,7 +44,9 @@
     "cmdk": "^1.0.0",
     "recharts": "^2.15.0",
     "date-fns": "^4.1.0",
-    "lowlight": "^3.2.0"
+    "lowlight": "^3.2.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

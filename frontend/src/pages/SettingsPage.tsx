@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useThemeStore } from '@/store/themeStore'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Moon, Sun, Shield, Bell, Database, Palette, Network } from 'lucide-react'
+import { Moon, Sun, Shield, Bell, Database, Palette, Network, Globe } from 'lucide-react'
 import { MfaSetup } from '@/components/settings/MfaSetup'
 import { MeshCentralSettings } from '@/components/settings/MeshCentralSettings'
+import { IonosSettings } from '@/components/settings/IonosSettings'
 
 export default function SettingsPage() {
   const { dark, toggle } = useThemeStore()
@@ -79,6 +80,16 @@ export default function SettingsPage() {
             </div>
           </CardHeader>
           <MeshCentralSettings />
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary-500" />
+              <CardTitle>IONOS Domains</CardTitle>
+            </div>
+          </CardHeader>
+          <IonosSettings />
         </Card>
 
         <Card>
