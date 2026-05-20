@@ -477,6 +477,26 @@ export interface SystemToolEvent {
   output: unknown
 }
 
+export type TaskStatus = 'idea' | 'todo' | 'in_progress' | 'blocked' | 'done' | 'archived'
+export type TaskPriority = 'low' | 'med' | 'high'
+
+export interface Task {
+  id: string
+  parent_id: string | null
+  organization_id: string | null
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority | null
+  due_date: string | null
+  position: number
+  completed_at: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+  child_count: number
+}
+
 export interface SystemChatTurn {
   assistant_text: string
   tool_events: SystemToolEvent[]

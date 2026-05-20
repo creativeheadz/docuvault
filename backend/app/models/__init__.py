@@ -29,6 +29,7 @@ from app.models.sidebar_item import SidebarItem
 from app.models.app_settings import AppSettings
 from app.models.ip_whitelist import IPWhitelist
 from app.models.system import System, SystemChatMessage
+from app.models.task import Task
 
 __all__ = [
     "User", "Organization", "Location", "Contact", "Configuration",
@@ -40,4 +41,5 @@ __all__ = [
     "Flag", "Webhook", "PasswordShareLink",
     "SidebarItem", "AppSettings", "IPWhitelist",
     "System", "SystemChatMessage",
+    "Task",
 ]

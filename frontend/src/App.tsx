@@ -20,6 +20,7 @@ import DocumentsPage from '@/pages/DocumentsPage'
 import FlexibleAssetsPage from '@/pages/FlexibleAssetsPage'
 import ChecklistsPage from '@/pages/ChecklistsPage'
 import RunbooksPage from '@/pages/RunbooksPage'
+import TasksPage from '@/pages/TasksPage'
 import ReportsPage from '@/pages/ReportsPage'
 import FlagsPage from '@/pages/FlagsPage'
 import SearchResultsPage from '@/pages/SearchResultsPage'
@@ -60,6 +61,7 @@ function AppRoutes() {
         <Route path="/flexible-assets/*" element={<FlexibleAssetsPage />} />
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/runbooks" element={<RunbooksPage />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/flags" element={<FlagsPage />} />
         <Route path="/search" element={<SearchResultsPage />} />

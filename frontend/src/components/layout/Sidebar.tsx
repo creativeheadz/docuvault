@@ -4,7 +4,7 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import {
   LayoutDashboard, Building2, MapPin, Users, Server, KeyRound,
   Globe, ShieldCheck, FileText, Puzzle, CheckSquare, BookOpen,
-  Search, Settings, ChevronLeft, ChevronRight, Boxes,
+  Search, Settings, ChevronLeft, ChevronRight, Boxes, ListTodo,
 } from 'lucide-react'
 
 const navItems = [
@@ -21,6 +21,7 @@ const navItems = [
   { path: '/flexible-assets',   label: 'Assets',         icon: Puzzle },
   { path: '/checklists',        label: 'Checklists',     icon: CheckSquare },
   { path: '/runbooks',          label: 'Runbooks',       icon: BookOpen },
+  { path: '/tasks',             label: 'Tasks',          icon: ListTodo },
 ]
 
 const bottomItems = [
