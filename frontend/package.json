@@ -17,6 +17,7 @@
     "axios": "^1.7.0",
     "@tiptap/react": "^2.11.0",
     "@tiptap/starter-kit": "^2.11.0",
+    "@tiptap/html": "^2.11.0",
     "@tiptap/extension-placeholder": "^2.11.0",
     "@tiptap/extension-underline": "^2.11.0",
     "@tiptap/extension-link": "^2.11.0",
@@ -46,7 +47,8 @@
     "date-fns": "^4.1.0",
     "lowlight": "^3.2.0",
     "react-markdown": "^9.0.1",
-    "remark-gfm": "^4.0.0"
+    "remark-gfm": "^4.0.0",
+    "marked": "^15.0.7"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

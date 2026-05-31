@@ -47,11 +47,13 @@ class ChecklistCreate(BaseModel):
     organization_id: uuid.UUID
     name: str
     description: str | None = None
+    is_baseline: bool = False
 
 
 class ChecklistUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    is_baseline: bool | None = None
 
 
 class ChecklistResponse(BaseModel):
@@ -59,6 +61,7 @@ class ChecklistResponse(BaseModel):
     organization_id: uuid.UUID
     name: str
     description: str | None = None
+    is_baseline: bool = False
     archived_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -72,6 +75,7 @@ class ChecklistResponse(BaseModel):
 @router.get("", response_model=list[ChecklistResponse])
 async def list_checklists(
     organization_id: uuid.UUID | None = Query(None),
+    is_baseline: bool | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -80,6 +84,8 @@ async def list_checklists(
     query = select(Checklist).where(Checklist.archived_at.is_(None))
     if organization_id:
         query = query.where(Checklist.organization_id == organization_id)
+    if is_baseline is not None:
+        query = query.where(Checklist.is_baseline.is_(is_baseline))
     items = (
         await db.execute(
             query.order_by(Checklist.name)

@@ -4,6 +4,7 @@ import { getOrganizations } from '@/api/organizations'
 import { Building2, Server, KeyRound, FileText, Globe, ShieldCheck, Users, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import RegistrarDomainsCard from '@/components/dashboard/RegistrarDomainsCard'
+import UptimeCard from '@/components/dashboard/UptimeCard'
 
 const quickLinks = [
   { label: 'Organizations',  icon: Building2,    path: '/organizations'    },
@@ -79,6 +80,9 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* Live service status from Uptime Kuma — hides itself until configured */}
+      <UptimeCard />
 
       {/* Registrar domain expiry — live, hides itself until configured */}
       <RegistrarDomainsCard />

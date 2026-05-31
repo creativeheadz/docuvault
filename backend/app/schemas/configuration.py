@@ -18,6 +18,13 @@ class ConfigurationCreate(BaseModel):
     model: str | None = None
     warranty_expiration: date | None = None
     notes: str | None = None
+    # CE evidence
+    ce_in_scope: bool = True
+    device_role: str | None = None
+    software_firewall_on: bool | None = None
+    malware_protection: str | None = None
+    os_eol_date: date | None = None
+    last_patched_date: date | None = None
 
 
 class ConfigurationUpdate(BaseModel):
@@ -33,6 +40,13 @@ class ConfigurationUpdate(BaseModel):
     model: str | None = None
     warranty_expiration: date | None = None
     notes: str | None = None
+    # CE evidence
+    ce_in_scope: bool | None = None
+    device_role: str | None = None
+    software_firewall_on: bool | None = None
+    malware_protection: str | None = None
+    os_eol_date: date | None = None
+    last_patched_date: date | None = None
 
 
 class ConfigurationResponse(BaseModel):
@@ -54,6 +68,13 @@ class ConfigurationResponse(BaseModel):
     mesh_agent_connected: bool | None = None
     mesh_last_sync_at: datetime | None = None
     mesh_extra: dict[str, Any] | None = None
+    # CE evidence
+    ce_in_scope: bool
+    device_role: str | None
+    software_firewall_on: bool | None
+    malware_protection: str | None
+    os_eol_date: date | None
+    last_patched_date: date | None
     created_at: datetime
     updated_at: datetime
 

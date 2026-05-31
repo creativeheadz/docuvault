@@ -4,10 +4,27 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import {
   LayoutDashboard, Building2, MapPin, Users, Server, KeyRound,
   Globe, ShieldCheck, FileText, Puzzle, CheckSquare, BookOpen,
-  Search, Settings, ChevronLeft, ChevronRight, Boxes, ListTodo,
+  Search, Settings, ChevronLeft, ChevronRight, ChevronDown, Boxes,
+  ListTodo, Shield, Cloud, UserCheck, ClipboardCheck,
+  type LucideIcon,
 } from 'lucide-react'
 
-const navItems = [
+interface NavItem {
+  path: string
+  label: string
+  icon: LucideIcon
+  disabled?: boolean
+}
+
+interface NavGroup {
+  id: string
+  title: string
+  items: NavItem[]
+  defaultOpen?: boolean
+}
+
+// Top-level "Workspace" items remain flat.
+const workspaceItems: NavItem[] = [
   { path: '/dashboard',         label: 'Overview',       icon: LayoutDashboard },
   { path: '/organizations',     label: 'Organizations',  icon: Building2 },
   { path: '/locations',         label: 'Locations',      icon: MapPin },
@@ -24,14 +41,64 @@ const navItems = [
   { path: '/tasks',             label: 'Tasks',          icon: ListTodo },
 ]
 
-const bottomItems = [
+// Grouped sections rendered below the workspace list.
+const groups: NavGroup[] = [
+  {
+    id: 'compliance',
+    title: 'Compliance',
+    defaultOpen: true,
+    items: [
+      { path: '/firewall-rules', label: 'Firewall Rules', icon: Shield },
+      { path: '/cloud-services', label: 'Cloud Services', icon: Cloud },
+      { path: '/user-access',    label: 'User Access',    icon: UserCheck },
+      { path: '/baselines',      label: 'Baselines',      icon: ClipboardCheck },
+    ],
+  },
+]
+
+const bottomItems: NavItem[] = [
   { path: '/search',   label: 'Search',   icon: Search },
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function Sidebar() {
   const location = useLocation()
-  const { collapsed, toggle } = useSidebarStore()
+  const { collapsed, toggle, collapsedGroups, toggleGroup } = useSidebarStore()
+
+  const renderItem = (item: NavItem) => {
+    const active = location.pathname.startsWith(item.path)
+    if (item.disabled) {
+      return (
+        <div
+          key={item.path}
+          className={cn(
+            'nav-item opacity-40 cursor-not-allowed',
+            collapsed && 'justify-center px-0'
+          )}
+          title={collapsed ? `${item.label} (coming soon)` : 'Coming soon'}
+        >
+          <item.icon className="h-4 w-4 shrink-0" />
+          {!collapsed && (
+            <span className="truncate flex items-center gap-2">
+              {item.label}
+              <span className="text-[9px] uppercase tracking-wider text-ink-faint">soon</span>
+            </span>
+          )}
+        </div>
+      )
+    }
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        className={cn('nav-item', active && 'nav-item-active', collapsed && 'justify-center px-0')}
+        title={collapsed ? item.label : undefined}
+      >
+        <item.icon className="h-4 w-4 shrink-0" />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+      </Link>
+    )
+  }
 
   return (
     <aside
@@ -80,18 +147,42 @@ export function Sidebar() {
       )}
 
       <nav className="flex-1 overflow-y-auto py-1">
-        {navItems.map((item) => {
-          const active = location.pathname.startsWith(item.path)
+        {workspaceItems.map(renderItem)}
+
+        {groups.map((group) => {
+          // collapsedGroups[id] === undefined → use defaultOpen
+          const storedCollapsed = collapsedGroups[group.id]
+          const isOpen = storedCollapsed === undefined ? !!group.defaultOpen : !storedCollapsed
+          const hasActive = group.items.some((i) => !i.disabled && location.pathname.startsWith(i.path))
+
+          if (collapsed) {
+            // Collapsed sidebar: render group items as flat icons, no header
+            return (
+              <div key={group.id} className="mt-2 pt-2 border-t border-line">
+                {group.items.map(renderItem)}
+              </div>
+            )
+          }
+
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn('nav-item', active && 'nav-item-active', collapsed && 'justify-center px-0')}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </Link>
+            <div key={group.id} className="mt-2">
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className="w-full flex items-center justify-between px-5 pt-3 pb-1.5 group"
+              >
+                <span className={cn(
+                  'kicker',
+                  hasActive ? 'text-ember' : 'text-ink-faint group-hover:text-ink'
+                )}>§ {group.title}</span>
+                <ChevronDown
+                  className={cn(
+                    'h-3 w-3 text-ink-faint transition-transform',
+                    !isOpen && '-rotate-90'
+                  )}
+                />
+              </button>
+              {isOpen && group.items.map(renderItem)}
+            </div>
           )
         })}
       </nav>

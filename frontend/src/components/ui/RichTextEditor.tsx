@@ -1,12 +1,8 @@
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
+import { marked } from 'marked'
+import { useRef } from 'react'
+import { tiptapBaseExtensions } from '@/lib/tiptapExtensions'
 import Placeholder from '@tiptap/extension-placeholder'
-import Underline from '@tiptap/extension-underline'
-import Link from '@tiptap/extension-link'
-import TextAlign from '@tiptap/extension-text-align'
-import Highlight from '@tiptap/extension-highlight'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code, Heading1, Heading2, Heading3,
   List, ListOrdered, CheckSquare, Quote, Minus, Link as LinkIcon, AlignLeft, AlignCenter, AlignRight,
@@ -15,28 +11,55 @@ import {
 import { cn } from '@/lib/utils'
 import { useEffect } from 'react'
 
+marked.setOptions({ gfm: true, breaks: false })
+
+// Heuristic: if pasted plain text looks like a single line of ordinary prose
+// (no markdown markers), skip the conversion so simple inline pastes don't
+// get wrapped in extra paragraph blocks unexpectedly.
+const looksLikeMarkdown = (text: string): boolean => {
+  if (text.includes('\n')) return true
+  return /(^|\s)(#{1,6}\s|[*_-]{1,3}|\d+\.\s|\[.*\]\(.*\)|`)/m.test(text)
+}
+
 interface RichTextEditorProps {
   content?: unknown
   onChange?: (content: unknown) => void
   placeholder?: string
   className?: string
+  editable?: boolean
 }
 
-export function RichTextEditor({ content, onChange, placeholder = 'Start writing...', className }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, placeholder = 'Start writing...', className, editable = true }: RichTextEditorProps) {
+  const editorRef = useRef<Editor | null>(null)
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      ...tiptapBaseExtensions,
       Placeholder.configure({ placeholder }),
-      Underline,
-      Link.configure({ openOnClick: false }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Highlight,
-      TaskList,
-      TaskItem.configure({ nested: true }),
     ],
     content: content as string || '',
+    editable,
+    onCreate: ({ editor }) => { editorRef.current = editor },
     onUpdate: ({ editor }) => {
       onChange?.(editor.getJSON())
+    },
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const clipboard = event.clipboardData
+        if (!clipboard) return false
+
+        // Defer to TipTap's native HTML handler when the clipboard has HTML —
+        // Word/Notion/web pastes already carry rich formatting we should keep.
+        if (clipboard.getData('text/html')) return false
+
+        const text = clipboard.getData('text/plain')
+        if (!text || !looksLikeMarkdown(text)) return false
+
+        const html = marked.parse(text, { async: false }) as string
+        editorRef.current?.commands.insertContent(html)
+        event.preventDefault()
+        return true
+      },
     },
   })
 
@@ -45,6 +68,12 @@ export function RichTextEditor({ content, onChange, placeholder = 'Start writing
       editor.commands.setContent(content as string)
     }
   }, [content, editor])
+
+  useEffect(() => {
+    if (editor && editor.isEditable !== editable) {
+      editor.setEditable(editable)
+    }
+  }, [editable, editor])
 
   if (!editor) return null
 
@@ -66,6 +95,7 @@ export function RichTextEditor({ content, onChange, placeholder = 'Start writing
 
   return (
     <div className={cn('border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden', className)}>
+      {editable && (
       <div className="flex flex-wrap items-center gap-0.5 p-2 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
         <ToolBtn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold"><Bold className={iconSize} /></ToolBtn>
         <ToolBtn active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"><Italic className={iconSize} /></ToolBtn>
@@ -96,6 +126,7 @@ export function RichTextEditor({ content, onChange, placeholder = 'Start writing
         <ToolBtn onClick={() => editor.chain().focus().undo().run()} title="Undo"><Undo className={iconSize} /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} title="Redo"><Redo className={iconSize} /></ToolBtn>
       </div>
+      )}
       <EditorContent
         editor={editor}
         className="prose dark:prose-invert max-w-none p-4 min-h-[200px] focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-gray-400 [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0"

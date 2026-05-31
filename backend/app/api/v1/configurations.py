@@ -1,7 +1,8 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -11,6 +12,55 @@ from app.models.user import User
 from app.schemas.configuration import ConfigurationCreate, ConfigurationUpdate, ConfigurationResponse
 
 router = APIRouter(prefix="/configurations", tags=["configurations"])
+
+
+@router.get("/fleet-readiness")
+async def fleet_readiness(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Cyber Essentials readiness summary across in-scope configurations."""
+    today = date.today()
+    base = select(func.count(Configuration.id)).where(
+        Configuration.archived_at.is_(None),
+        Configuration.ce_in_scope.is_(True),
+    )
+    in_scope = (await db.execute(base)).scalar_one()
+    no_firewall_data = (await db.execute(
+        base.where(Configuration.software_firewall_on.is_(None))
+    )).scalar_one()
+    firewall_off = (await db.execute(
+        base.where(Configuration.software_firewall_on.is_(False))
+    )).scalar_one()
+    no_malware_protection = (await db.execute(
+        base.where(
+            (Configuration.malware_protection.is_(None))
+            | (Configuration.malware_protection == "none")
+        )
+    )).scalar_one()
+    os_eol_now = (await db.execute(
+        base.where(Configuration.os_eol_date.isnot(None), Configuration.os_eol_date <= today)
+    )).scalar_one()
+    os_eol_soon = (await db.execute(
+        base.where(
+            Configuration.os_eol_date.isnot(None),
+            Configuration.os_eol_date > today,
+            Configuration.os_eol_date <= date(today.year + (today.month + 6 > 12), ((today.month + 6 - 1) % 12) + 1, min(today.day, 28)),
+        )
+    )).scalar_one()
+    patch_stale = (await db.execute(
+        base.where(Configuration.last_patched_date.isnot(None))
+        .where(Configuration.last_patched_date < date(today.year, today.month, 1))  # not patched this calendar month
+    )).scalar_one()
+    return {
+        "in_scope": in_scope,
+        "no_firewall_data": no_firewall_data,
+        "firewall_off": firewall_off,
+        "no_malware_protection": no_malware_protection,
+        "os_eol_now": os_eol_now,
+        "os_eol_soon": os_eol_soon,
+        "patch_stale": patch_stale,
+    }
 
 
 @router.get("", response_model=list[ConfigurationResponse])

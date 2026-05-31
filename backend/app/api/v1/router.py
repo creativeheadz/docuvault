@@ -27,6 +27,11 @@ from app.api.v1.systems import router as systems_router
 from app.api.v1.dns import router as dns_router
 from app.api.v1.registrars import router as registrars_router
 from app.api.v1.tasks import router as tasks_router
+from app.api.v1.firewall_rules import router as firewall_rules_router
+from app.api.v1.cloud_services import router as cloud_services_router
+from app.api.v1.baselines import router as baselines_router
+from app.api.v1.user_access import router as user_access_router
+from app.api.v1.uptime import router as uptime_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -56,3 +61,8 @@ api_router.include_router(systems_router)
 api_router.include_router(dns_router)
 api_router.include_router(registrars_router)
 api_router.include_router(tasks_router)
+api_router.include_router(firewall_rules_router)
+api_router.include_router(cloud_services_router)
+api_router.include_router(baselines_router)
+api_router.include_router(user_access_router)
+api_router.include_router(uptime_router)

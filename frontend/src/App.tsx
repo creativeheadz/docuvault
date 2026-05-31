@@ -21,6 +21,10 @@ import FlexibleAssetsPage from '@/pages/FlexibleAssetsPage'
 import ChecklistsPage from '@/pages/ChecklistsPage'
 import RunbooksPage from '@/pages/RunbooksPage'
 import TasksPage from '@/pages/TasksPage'
+import FirewallRulesPage from '@/pages/FirewallRulesPage'
+import CloudServicesPage from '@/pages/CloudServicesPage'
+import BaselinesPage from '@/pages/BaselinesPage'
+import UserAccessPage from '@/pages/UserAccessPage'
 import ReportsPage from '@/pages/ReportsPage'
 import FlagsPage from '@/pages/FlagsPage'
 import SearchResultsPage from '@/pages/SearchResultsPage'
@@ -62,6 +66,10 @@ function AppRoutes() {
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/runbooks" element={<RunbooksPage />} />
         <Route path="/tasks" element={<TasksPage />} />
+        <Route path="/firewall-rules" element={<FirewallRulesPage />} />
+        <Route path="/cloud-services" element={<CloudServicesPage />} />
+        <Route path="/baselines" element={<BaselinesPage />} />
+        <Route path="/user-access" element={<UserAccessPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/flags" element={<FlagsPage />} />
         <Route path="/search" element={<SearchResultsPage />} />

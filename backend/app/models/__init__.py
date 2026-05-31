@@ -30,6 +30,10 @@ from app.models.app_settings import AppSettings
 from app.models.ip_whitelist import IPWhitelist
 from app.models.system import System, SystemChatMessage
 from app.models.task import Task
+from app.models.firewall_rule import FirewallRule
+from app.models.cloud_service import CloudService
+from app.models.configuration_baseline import ConfigurationBaseline
+from app.models.user_access import UserAccess
 
 __all__ = [
     "User", "Organization", "Location", "Contact", "Configuration",
@@ -42,4 +46,8 @@ __all__ = [
     "SidebarItem", "AppSettings", "IPWhitelist",
     "System", "SystemChatMessage",
     "Task",
+    "FirewallRule",
+    "CloudService",
+    "ConfigurationBaseline",
+    "UserAccess",
 ]

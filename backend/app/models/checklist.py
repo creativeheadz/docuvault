@@ -14,6 +14,7 @@ class Checklist(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_baseline: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     organization = relationship("Organization", backref="checklists", lazy="selectin")
     items = relationship("ChecklistItem", back_populates="checklist", lazy="selectin", cascade="all, delete-orphan", order_by="ChecklistItem.sort_order")

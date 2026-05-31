@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -40,11 +40,12 @@ async def create_folder(body: DocumentFolderCreate, db: AsyncSession = Depends(g
 
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_folder(folder_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
-    result = await db.execute(select(DocumentFolder).where(DocumentFolder.id == folder_id))
-    folder = result.scalar_one_or_none()
-    if not folder:
+    """Delete a folder. Documents inside are moved to the root (folder_id NULL)."""
+    exists = (await db.execute(select(DocumentFolder.id).where(DocumentFolder.id == folder_id))).scalar_one_or_none()
+    if not exists:
         raise HTTPException(status_code=404, detail="Folder not found")
-    await db.delete(folder)
+    await db.execute(text("UPDATE documents SET folder_id = NULL WHERE folder_id = :fid"), {"fid": folder_id})
+    await db.execute(text("DELETE FROM document_folders WHERE id = :fid"), {"fid": folder_id})
 
 
 # --- Templates ---
@@ -135,11 +136,15 @@ async def update_document(doc_id: uuid.UUID, body: DocumentUpdate, db: AsyncSess
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
-    result = await db.execute(select(Document).where(Document.id == doc_id))
-    doc = result.scalar_one_or_none()
-    if not doc:
+    exists = (await db.execute(select(Document.id).where(Document.id == doc_id))).scalar_one_or_none()
+    if not exists:
         raise HTTPException(status_code=404, detail="Document not found")
-    await db.delete(doc)
+    # ON DELETE CASCADE on document_versions handles version rows; the ORM
+    # relationship has no cascade configured, so go through raw SQL to avoid
+    # SQLAlchemy attempting to NULL the (non-nullable) child FKs first.
+    await db.execute(text("DELETE FROM documents WHERE id = :did"), {"did": doc_id})
+
+
 
 
 @router.get("/{doc_id}/versions", response_model=list[DocumentVersionResponse])

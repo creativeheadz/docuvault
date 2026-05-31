@@ -1,5 +1,5 @@
 import client from './client'
-import type { Configuration } from '@/types'
+import type { Configuration, FleetReadiness } from '@/types'
 
 export const getConfigurations = async (params?: Record<string, unknown>) => {
   const { data } = await client.get<Configuration[]>('/configurations', { params })
@@ -23,4 +23,9 @@ export const updateConfiguration = async (id: string, body: Partial<Configuratio
 
 export const deleteConfiguration = async (id: string) => {
   await client.delete(`/configurations/${id}`)
+}
+
+export const getFleetReadiness = async () => {
+  const { data } = await client.get<FleetReadiness>('/configurations/fleet-readiness')
+  return data
 }
