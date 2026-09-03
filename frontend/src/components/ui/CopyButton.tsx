@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/clipboard'
 import toast from 'react-hot-toast'
 
 interface CopyButtonProps {
@@ -12,7 +13,10 @@ export function CopyButton({ value, className }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(value)
+    if (!(await copyToClipboard(value))) {
+      toast.error('Could not copy — select the text and copy manually')
+      return
+    }
     setCopied(true)
     toast.success('Copied')
     setTimeout(() => setCopied(false), 1500)
