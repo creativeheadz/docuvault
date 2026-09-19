@@ -32,6 +32,8 @@ from app.api.v1.cloud_services import router as cloud_services_router
 from app.api.v1.baselines import router as baselines_router
 from app.api.v1.user_access import router as user_access_router
 from app.api.v1.uptime import router as uptime_router
+from app.api.v1.api_tokens import router as api_tokens_router
+from app.api.v1.integration import router as integration_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -66,3 +68,7 @@ api_router.include_router(cloud_services_router)
 api_router.include_router(baselines_router)
 api_router.include_router(user_access_router)
 api_router.include_router(uptime_router)
+api_router.include_router(api_tokens_router)
+# Machine-authenticated (X-API-Key). Last, and separate: nothing above
+# this line accepts anything but a user JWT.
+api_router.include_router(integration_router)

@@ -34,6 +34,7 @@ from app.models.firewall_rule import FirewallRule
 from app.models.cloud_service import CloudService
 from app.models.configuration_baseline import ConfigurationBaseline
 from app.models.user_access import UserAccess
+from app.models.api_token import ApiToken
 
 __all__ = [
     "User", "Organization", "Location", "Contact", "Configuration",
@@ -50,4 +51,5 @@ __all__ = [
     "CloudService",
     "ConfigurationBaseline",
     "UserAccess",
+    "ApiToken",
 ]
