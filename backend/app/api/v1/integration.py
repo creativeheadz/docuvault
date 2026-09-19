@@ -115,7 +115,7 @@ async def list_organizations(token: ApiToken = Depends(require_token),
 
 @router.get("/context")
 async def get_context(
-    organization_id: uuid.UUID = Query(...),
+    organization_id: list[uuid.UUID] = Query(..., max_length=25),
     hostname: str | None = Query(None, max_length=255),
     serial: str | None = Query(None, max_length=255),
     device_name: str | None = Query(None, max_length=255),
@@ -124,12 +124,19 @@ async def get_context(
 ):
     """Documentation for one client, focused on one machine when named.
 
+    `organization_id` repeats. One Wegweiser client is frequently several
+    DocuVault organisations, because a documentation platform organises more
+    finely than the monitoring does - see `organization_context` for the live
+    case that proved it. Capped at 25, which is far past any sane fan-out and
+    stops a caller turning one chat answer into a table scan.
+
     The caller passes whatever identity it has for the device. Nothing is
-    required beyond the organisation, because a question asked at client
+    required beyond the organisations, because a question asked at client
     level ("what is the backup arrangement here") is as real as one asked on
     a machine.
     """
-    assert_may_read(token, organization_id)
+    for org_id in organization_id:
+        assert_may_read(token, org_id)
     return await ctx.organization_context(db, organization_id, hostname=hostname,
                                           serial=serial, device_name=device_name)
 
@@ -137,16 +144,24 @@ async def get_context(
 @router.get("/search")
 async def search(
     q: str = Query(..., min_length=2, max_length=200),
-    organization_id: uuid.UUID | None = Query(None),
+    organization_id: list[uuid.UUID] = Query(default_factory=list, max_length=25),
     token: ApiToken = Depends(require_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Free-text lookup, so a model can find documentation nobody filed under
-    the right client."""
+    the right client.
+
+    `organization_id` repeats, for the same reason it does on /context: one
+    client is frequently several organisations here. Passing the client's
+    whole set matters more on this route than on that one - an unscoped
+    search would put one client's runbooks into a conversation about another,
+    and the caller cannot tell from the results that it happened.
+    """
     org_ids = None
-    if organization_id is not None:
-        assert_may_read(token, organization_id)
-        org_ids = [organization_id]
+    if organization_id:
+        for org_id in organization_id:
+            assert_may_read(token, org_id)
+        org_ids = list(organization_id)
     elif token.organization_ids:
         org_ids = list(token.organization_ids)
     return await ctx.search_context(db, q, organization_ids=org_ids)

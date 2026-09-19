@@ -140,7 +140,7 @@ async def _related_system_ids(db: AsyncSession, entity_ids: Iterable[uuid.UUID])
     return [r[0] for r in rows]
 
 
-async def match_configuration(db: AsyncSession, organization_id, hostname=None,
+async def match_configuration(db: AsyncSession, organization_ids, hostname=None,
                               serial=None, name=None) -> Configuration | None:
     """The documented machine behind a Wegweiser device, or None.
 
@@ -158,8 +158,10 @@ async def match_configuration(db: AsyncSession, organization_id, hostname=None,
     """
     base = select(Configuration).where(
         Configuration.archived_at.is_(None))
-    if organization_id:
-        base = base.where(Configuration.organization_id == organization_id)
+    if organization_ids:
+        ids = ([organization_ids] if not isinstance(organization_ids, (list, tuple, set))
+               else list(organization_ids))
+        base = base.where(Configuration.organization_id.in_(ids))
 
     serial = (serial or "").strip()
     if serial:
@@ -309,53 +311,88 @@ async def _contact_item(db: AsyncSession, organization_id) -> dict | None:
                  f"/organizations/{organization_id}")
 
 
-async def organization_context(db: AsyncSession, organization_id, hostname=None,
+async def organization_context(db: AsyncSession, organization_ids, hostname=None,
                                serial=None, device_name=None) -> dict:
-    """Everything documented about one client, optionally focused on one machine.
+    """Everything documented about a client, optionally focused on one machine.
+
+    **Several organisations, not one**, and that is not a generalisation for
+    its own sake. A documentation platform frequently organises more finely
+    than the monitoring does. Measured against a real instance on 2026-09-19:
+    DocuVault's organisation list had been populated from MeshCentral device
+    GROUPS, so one Wegweiser client ("Old Forge Technologies") was four
+    DocuVault organisations - Hypervisors, Laptops, Office, VMs. A caller that
+    could pass only one id would have documented a quarter of that client's
+    estate and silently answered from the wrong quarter for the rest.
+
+    So the machine is searched for across every linked organisation, and when
+    one is found **its** organisation supplies the client-level documentation
+    too. A question asked on a device page is a question about that device,
+    and the runbooks that matter are the ones filed beside it.
+
+    With no machine matched - a client-level conversation, or a machine
+    nobody documented - every linked organisation contributes, in the order
+    given, until the cap.
 
     Order matters and is not alphabetical: the caller truncates from the end,
-    so the list runs most specific first. The machine's own record and the
-    systems attached to it beat the client's general documentation, because
-    a question asked on a device page is a question about that device.
+    so the list runs most specific first.
     """
-    org = (await db.execute(select(Organization).where(
-        Organization.id == organization_id,
-        Organization.archived_at.is_(None)))).scalars().first()
-    if org is None:
+    ids = [i for i in (organization_ids or []) if i]
+    if not ids:
         return {"found": False, "organization": None, "items": [], "truncated": False}
 
-    cfg = await match_configuration(db, organization_id, hostname, serial, device_name)
+    orgs = (await db.execute(select(Organization).where(
+        Organization.id.in_(ids),
+        Organization.archived_at.is_(None)))).scalars().all()
+    if not orgs:
+        return {"found": False, "organization": None, "items": [], "truncated": False}
+    by_id = {o.id: o for o in orgs}
+    # Preserve the caller's order; it is the order the links were made in and
+    # the caller is the one who knows which matters most.
+    ordered = [by_id[i] for i in ids if i in by_id]
+
+    cfg = await match_configuration(db, [o.id for o in ordered], hostname,
+                                    serial, device_name)
 
     items: list[dict] = []
-    related_ids = [organization_id] + ([cfg.id] if cfg is not None else [])
     if cfg is not None:
         cfg_item = _configuration_item(cfg)
         if cfg_item:
             items.append(cfg_item)
         # Systems attached to this machine specifically, before the client's.
         items.extend(await _systems_items(db, await _related_system_ids(db, [cfg.id])))
+        # The matched machine's own organisation wins: its runbooks are the
+        # ones filed beside it.
+        client_orgs = [by_id[cfg.organization_id]] if cfg.organization_id in by_id else ordered
+    else:
+        client_orgs = ordered
 
     seen = {i["path"] for i in items}
-    for item in await _systems_items(db, await _related_system_ids(db, [organization_id])):
-        if item["path"] not in seen:
-            items.append(item)
-            seen.add(item["path"])
 
-    items.extend(await _runbook_items(db, organization_id))
-    items.extend(await _document_items(db, organization_id))
-    contacts = await _contact_item(db, organization_id)
-    if contacts:
-        items.append(contacts)
+    def add(new_items):
+        for item in new_items:
+            if item["path"] not in seen:
+                items.append(item)
+                seen.add(item["path"])
 
-    if (org.description or "").strip():
-        items.append(_item("client note", org.name, org.description,
-                           org.updated_at, f"/organizations/{org.id}"))
+    for org in client_orgs:
+        if len(items) >= ITEM_LIMIT:
+            break
+        add(await _systems_items(db, await _related_system_ids(db, [org.id])))
+        add(await _runbook_items(db, org.id))
+        add(await _document_items(db, org.id))
+        contacts = await _contact_item(db, org.id)
+        if contacts:
+            add([contacts])
+        if (org.description or "").strip():
+            add([_item("client note", org.name, org.description,
+                       org.updated_at, f"/organizations/{org.id}")])
 
+    primary = client_orgs[0]
     truncated = len(items) > ITEM_LIMIT
     return {
         "found": True,
-        "organization": {"id": str(org.id), "name": org.name,
-                         "path": f"/organizations/{org.id}"},
+        "organization": {"id": str(primary.id), "name": primary.name,
+                         "path": f"/organizations/{primary.id}"},
         "matched_configuration": None if cfg is None else {
             "id": str(cfg.id), "name": cfg.name, "hostname": cfg.hostname,
             "serial_number": cfg.serial_number,
