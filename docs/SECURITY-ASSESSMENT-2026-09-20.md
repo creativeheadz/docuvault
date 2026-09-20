@@ -199,3 +199,68 @@ Not blocking exposure, but they are the next tranche, and all of them need code:
 5. **M3** — the `os.path.join` traversal in the attachment upload is still reachable by an authenticated user.
 6. **L1** — webhook secrets still returned by the API.
 7. `config.py` still carries working demo defaults. They should refuse to boot instead.
+
+---
+
+## Addendum 2 — the code tranche, same day
+
+Everything in "Still open" above is now closed except H1, which the
+provisioning conception resolves structurally rather than by patching.
+Deployed from git to `.203` with `ENVIRONMENT=production`, and verified
+live after the rebuild.
+
+| Finding | Commit | How it was verified |
+|---|---|---|
+| **H2** SSRF | `bbefdbc` | `169.254.169.254` and `192.168.1.40` refused, `one.one.one.one` allowed, on the running instance |
+| **C3** MeshCentral | `cec47ce` | plaintext row re-encrypted on read; live sync still returns 8 meshes / 32 nodes **with certificate verification on** |
+| **M3** attachments | `d6019a2` | 11 traversal attempts rejected in tests, including `/etc/cron.d` and `C:\Windows` |
+| **M4** schema + defaults | `5c1b169` | `/openapi.json`, `/docs`, `/redoc` all 404 in production; startup refuses the demo secrets by name |
+| **L1** webhook secrets | `ce60497` | secret replaced by `secret_set` in every response |
+| **M2** refresh tokens | `a1536a7` | full lifecycle exercised end to end against the live database |
+
+**Two things worth recording, because neither was in the original findings
+and both were found by testing rather than by reading.**
+
+*Refresh tokens were not unique.* `create_refresh_token` signed a payload of
+`{sub, exp, type}`, and `exp` has one-second resolution — so two tokens
+minted for the same user within the same second were byte-identical. That
+was invisible while nothing stored them, and became a unique-constraint
+violation the instant they were recorded: a login and a rotation landing
+together would have 500'd. Each token now carries a `jti`. A latent bug that
+only a persistence change could expose.
+
+*Detecting token theft did nothing.* On reuse the code revoked every live
+session and then raised, and `get_db` rolls back on an exception — so the
+revocation was discarded and the stolen token kept working. The 401 looked
+correct in isolation; only exercising the full sequence showed the token
+still worked afterwards. The revocation is now committed before the raise.
+The general shape is worth remembering: **a security side-effect that shares
+a transaction with the request it rejects does not happen.**
+
+### The MeshCentral connection was worse than recorded
+
+C3 said "plaintext at rest". The client also set `check_hostname = False`
+and `verify_mode = CERT_NONE` unconditionally, so the RMM administrator
+password went to whoever answered on that address, with no way to tell. That
+is now verified by default, with a per-instance opt-out for the self-signed
+case that logs a warning and says in the UI what it costs. The live server
+was checked first — it connects fine with verification on, so this cost
+nothing.
+
+### Test coverage
+
+From 18 tests to 65, all passing. The new ones cover the address classifier,
+the URL gate and its allow-list, attachment path containment, and refresh
+token identity. `pip install -e ".[dev]"` then `pytest backend/tests`.
+
+### Still open
+
+- **H1**, no authorisation model. Deliberately left: instance-per-tenant
+  makes it correct rather than patched. Roles *within* a tenant remain a
+  product feature for later.
+- Rate limiting lives only at the edge. That is the right place for it, but
+  a caller reaching the app another way is not limited; an application-level
+  limiter on `/auth/*` would be belt and braces.
+- `purge_expired` exists but nothing calls it — `refresh_tokens` grows
+  until something schedules it.
+- The CSP is still Report-Only. Check the browser console, then promote it.
