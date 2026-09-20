@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -24,7 +25,13 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    # `exp` has one-second resolution, so without a unique claim two tokens
+    # minted for the same user in the same second are byte-identical. That
+    # was harmless while nothing stored them and became a unique-constraint
+    # violation the moment they were recorded - which is to say, it would
+    # have failed a login and a rotation that happened to land together.
+    to_encode.update({"exp": expire, "type": "refresh",
+                      "jti": secrets.token_urlsafe(16)})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

@@ -35,6 +35,7 @@ from app.models.cloud_service import CloudService
 from app.models.configuration_baseline import ConfigurationBaseline
 from app.models.user_access import UserAccess
 from app.models.api_token import ApiToken
+from app.models.refresh_token import RefreshToken  # noqa: F401
 
 __all__ = [
     "User", "Organization", "Location", "Contact", "Configuration",
@@ -52,4 +53,5 @@ __all__ = [
     "ConfigurationBaseline",
     "UserAccess",
     "ApiToken",
+    "RefreshToken",
 ]
