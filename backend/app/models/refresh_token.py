@@ -45,6 +45,11 @@ class RefreshToken(TimestampMixin, Base):
     # token can be told apart from one that was simply revoked. The first
     # is evidence of theft; the second is somebody signing out.
     replaced_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # When the rotation happened, so that a token arriving moments later can
+    # be told apart from one arriving days later. The first is a race
+    # between parallel requests; the second is somebody else holding it.
+    replaced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
 
     # Enough to recognise a session in a list without being a tracking
     # record: "Firefox on the office machine, last Tuesday".

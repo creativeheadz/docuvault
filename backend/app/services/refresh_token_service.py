@@ -19,6 +19,18 @@ from app.models.refresh_token import RefreshToken, hash_refresh_token
 
 logger = logging.getLogger(__name__)
 
+# How long after a rotation the previous token is still tolerated.
+#
+# A single-page app fires several requests at once, so when the access token
+# expires they 401 together and more than one may reach /auth/refresh before
+# the first response lands. That is a race, not a theft, and treating it as
+# theft logs the user out every time their token expires. The client
+# serialises its refreshes, which handles the common case; this handles the
+# ones it cannot see - a second browser tab, a retried request, a flaky
+# connection - without giving up detection, because a token replayed outside
+# this window is still treated as compromised.
+REUSE_GRACE_SECONDS = 30
+
 
 class RefreshRejected(Exception):
     """The presented refresh token will not be honoured."""
@@ -75,9 +87,23 @@ async def rotate(db: AsyncSession, raw_token: str, *, ip: str | None = None,
         raise RefreshRejected("Unknown refresh token")
 
     if row.replaced_by is not None:
-        # Already rotated, and here it is again: two parties hold this
-        # token. Which one is legitimate is not knowable from here, so end
-        # every session and make them both sign in.
+        age = (_now() - row.replaced_at).total_seconds() if row.replaced_at else None
+        if age is not None and age <= REUSE_GRACE_SECONDS:
+            # Rotated a moment ago: this is a parallel request that was
+            # already in flight, not a second holder. Issue a pair and move
+            # the marker on, so the window does not slide indefinitely.
+            access, refresh = await issue_pair(
+                db, row.user_id, ip=ip, user_agent=user_agent)
+            row.replaced_by = hash_refresh_token(refresh)
+            row.replaced_at = _now()
+            await db.flush()
+            logger.info("Refresh race for user %s (%.1fs after rotation)",
+                        row.user_id, age)
+            return access, refresh
+
+        # Rotated long enough ago that nothing legitimate still holds it:
+        # two parties have this token. Which one is genuine is not knowable
+        # from here, so end every session and make them both sign in.
         count = await revoke_all_for_user(db, row.user_id)
         # Committed here rather than left to get_db, which rolls back on the
         # exception this is about to raise. The revocation has to outlive the
@@ -96,6 +122,7 @@ async def rotate(db: AsyncSession, raw_token: str, *, ip: str | None = None,
 
     access, refresh = await issue_pair(db, row.user_id, ip=ip, user_agent=user_agent)
     row.replaced_by = hash_refresh_token(refresh)
+    row.replaced_at = _now()
     await db.flush()
     return access, refresh
 
