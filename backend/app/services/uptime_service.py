@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt, encrypt
+from app.core.net_guard import BlockedAddress, guarded_client
 from app.models.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
@@ -205,11 +206,14 @@ async def fetch_monitors(db: AsyncSession, *, force: bool = False) -> dict[str, 
         return {"configured": True, "monitors": [], "summary": _summary([]), "error": msg}
 
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as cx:
+        async with guarded_client(timeout=_TIMEOUT, follow_redirects=True) as cx:
             resp = await cx.get(f"{url}/metrics", auth=("", api_key))
         if resp.status_code in (401, 403):
             return _err("Authentication failed — check the API key.")
         resp.raise_for_status()
+    except BlockedAddress as exc:
+        logger.warning("Uptime Kuma URL refused: %s", exc)
+        return _err(str(exc))
     except httpx.HTTPError as exc:
         logger.warning("Uptime Kuma fetch failed: %s", exc)
         return _err(f"Could not reach Uptime Kuma: {exc}")

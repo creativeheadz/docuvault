@@ -14,6 +14,8 @@ from typing import Any
 
 import httpx
 
+from app.core.net_guard import guarded_client
+
 logger = logging.getLogger(__name__)
 
 RDAP_BOOTSTRAP = "https://rdap.org/domain/{name}"
@@ -54,7 +56,7 @@ async def probe_domain(domain_name: str, timeout: float = 10.0) -> dict[str, Any
     if not name:
         raise ValueError("empty domain name")
 
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as http:
+    async with guarded_client(timeout=timeout, follow_redirects=True) as http:
         resp = await http.get(RDAP_BOOTSTRAP.format(name=name))
         resp.raise_for_status()
         raw = resp.json()

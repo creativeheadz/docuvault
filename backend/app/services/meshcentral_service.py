@@ -10,6 +10,7 @@ import websockets
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.net_guard import assert_public_url
 from app.models.organization import Organization
 from app.models.configuration import Configuration
 from app.models.app_settings import AppSettings
@@ -41,6 +42,10 @@ class MeshCentralClient:
 
     async def _send_command(self, command: dict) -> dict:
         """Open a WS connection, send a command, return the response."""
+        # The server address is chosen in Settings, so it is API-supplied
+        # input and gets the same treatment as any other outbound target.
+        # There is no redirect to re-check here - a websocket connects once.
+        await assert_public_url(self.ws_url)
         extra = {"additional_headers": {"x-meshauth": self.auth_header}}
         if self.ws_url.startswith("wss"):
             extra["ssl"] = self._ssl_context

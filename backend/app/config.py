@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
     UPLOAD_DIR: str = "/app/uploads"
 
+    # Hosts that outbound requests may reach even though they resolve
+    # into private address space. Comma-separated names or literal IPs.
+    # See app/core/net_guard.py for which call sites this applies to.
+    OUTBOUND_ALLOWED_HOSTS: str = ""
+
     # AI chat for the Systems documentation page
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-haiku-4-5"

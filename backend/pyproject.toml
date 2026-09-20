@@ -24,6 +24,12 @@ dependencies = [
     "anthropic>=0.40.0",
 ]
 
+[project.optional-dependencies]
+# `pip install -e ".[dev]"` then `pytest backend/tests`.
+dev = [
+    "pytest>=8.0",
+]
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
