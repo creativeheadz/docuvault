@@ -433,7 +433,8 @@ export interface Webhook {
   url: string
   events: string[]
   is_active: boolean
-  secret: string | null
+  /** The signing secret is write-only; the API never returns it. */
+  secret_set: boolean
   created_at: string
   updated_at: string
 }

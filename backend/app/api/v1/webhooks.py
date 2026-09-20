@@ -33,14 +33,29 @@ class WebhookUpdate(BaseModel):
 
 
 class WebhookResponse(BaseModel):
+    """A webhook as the API will describe it.
+
+    The signing secret is deliberately absent. It is write-only: it goes in
+    when the webhook is created or updated and is never handed back, so a
+    read of this resource cannot be used to forge a signed delivery. The
+    boolean is enough for a UI to show whether one is set.
+    """
     id: uuid.UUID
     name: str
     url: str
     events: list | None = None
     is_active: bool
-    secret: str | None = None
+    secret_set: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    @classmethod
+    def of(cls, hook) -> "WebhookResponse":
+        return cls(
+            id=hook.id, name=hook.name, url=hook.url, events=hook.events,
+            is_active=hook.is_active, secret_set=bool(hook.secret),
+            created_at=hook.created_at, updated_at=hook.updated_at,
+        )
 
     model_config = {"from_attributes": True}
 
@@ -65,7 +80,7 @@ async def list_webhooks(
             .limit(page_size)
         )
     ).scalars().all()
-    return items
+    return [WebhookResponse.of(i) for i in items]
 
 
 @router.post("", response_model=WebhookResponse, status_code=status.HTTP_201_CREATED)
@@ -78,7 +93,7 @@ async def create_webhook(
     db.add(item)
     await db.flush()
     await db.refresh(item)
-    return item
+    return WebhookResponse.of(item)
 
 
 @router.get("/{item_id}", response_model=WebhookResponse)
@@ -91,7 +106,7 @@ async def get_webhook(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    return item
+    return WebhookResponse.of(item)
 
 
 @router.put("/{item_id}", response_model=WebhookResponse)
@@ -109,7 +124,7 @@ async def update_webhook(
         setattr(item, field, value)
     await db.flush()
     await db.refresh(item)
-    return item
+    return WebhookResponse.of(item)
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
