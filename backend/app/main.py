@@ -32,7 +32,20 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown.")
 
 
-app = FastAPI(title="DocuVault API", version="1.0.0", lifespan=lifespan)
+_IS_PRODUCTION = settings.ENVIRONMENT.strip().lower() == "production"
+
+# The schema lists all 115 routes with their shapes. That is a convenience
+# in development and a map for somebody else in production, so it is served
+# only in development. The frontend proxy only forwards /api/, so this is
+# the control that matters when the backend port is reachable directly.
+app = FastAPI(
+    title="DocuVault API",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None if _IS_PRODUCTION else "/docs",
+    redoc_url=None if _IS_PRODUCTION else "/redoc",
+    openapi_url=None if _IS_PRODUCTION else "/openapi.json",
+)
 
 app.add_middleware(
     CORSMiddleware,
