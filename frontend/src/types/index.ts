@@ -715,3 +715,23 @@ export interface SystemChatTurn {
   user_message: SystemChatMessage
   assistant_message: SystemChatMessage
 }
+
+export interface ApiToken {
+  id: string
+  name: string
+  description: string | null
+  /** First characters of the key, e.g. "dvt_9f3a2c1b" — enough to tell two apart. */
+  prefix: string
+  scopes: string[]
+  /** Empty means every organisation. */
+  organization_ids: string[]
+  expires_at: string | null
+  revoked_at: string | null
+  last_used_at: string | null
+  created_at: string | null
+}
+
+export interface ApiTokenCreated extends ApiToken {
+  /** Present only in the response that created it. There is no second copy. */
+  token: string
+}

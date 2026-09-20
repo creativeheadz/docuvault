@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useThemeStore } from '@/store/themeStore'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Moon, Sun, Shield, Bell, Database, Palette, Network, Globe, Activity } from 'lucide-react'
+import { Moon, Sun, Shield, Bell, Database, Palette, Network, Globe, Activity, KeyRound } from 'lucide-react'
 import { MfaSetup } from '@/components/settings/MfaSetup'
 import { MeshCentralSettings } from '@/components/settings/MeshCentralSettings'
 import { RegistrarsSettings } from '@/components/settings/RegistrarsSettings'
 import { UptimeSettings } from '@/components/settings/UptimeSettings'
+import { ApiKeysSettings } from '@/components/settings/ApiKeysSettings'
 
 export default function SettingsPage() {
   const { dark, toggle } = useThemeStore()
@@ -71,6 +72,16 @@ export default function SettingsPage() {
             <div className="text-xs text-gray-500 mt-1">Configure webhooks for real-time event notifications</div>
             <Button variant="secondary" size="sm" className="mt-2">Manage Webhooks</Button>
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary-500" />
+              <CardTitle>API keys</CardTitle>
+            </div>
+          </CardHeader>
+          <ApiKeysSettings />
         </Card>
 
         <Card>
