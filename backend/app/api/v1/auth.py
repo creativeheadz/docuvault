@@ -11,7 +11,8 @@ from app.core.security import create_mfa_token, decode_token
 from app.models.user import User
 from app.schemas.auth import LoginRequest, LoginResponse, TokenResponse, RefreshRequest, UserResponse, MfaVerifyRequest
 from app.services.auth_service import authenticate
-from app.services.mfa_service import decrypt_secret, verify_totp_code
+from app.services.mfa_service import (TotpSecretUnreadable, decrypt_secret,
+                                      verify_totp_code)
 from app.services.refresh_token_service import (RefreshRejected, issue_pair,
                                                 revoke, rotate)
 
@@ -79,7 +80,14 @@ async def mfa_verify(body: MfaVerifyRequest, request: Request, response: Respons
     if not user or not user.totp_enabled:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or MFA not enabled")
 
-    secret = decrypt_secret(user.totp_secret)
+    try:
+        secret = decrypt_secret(user.totp_secret)
+    except TotpSecretUnreadable as exc:
+        # 503, not 500: the credential is fine, the server cannot read it,
+        # and retrying the same code will not help.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)) from exc
     if not verify_totp_code(secret, body.totp_code):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP code")
 
