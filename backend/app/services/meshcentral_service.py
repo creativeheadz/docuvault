@@ -10,6 +10,7 @@ import websockets
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.encryption import decrypt, encrypt
 from app.core.net_guard import assert_public_url
 from app.models.organization import Organization
 from app.models.configuration import Configuration
@@ -21,7 +22,8 @@ logger = logging.getLogger(__name__)
 class MeshCentralClient:
     """WebSocket client for MeshCentral control channel."""
 
-    def __init__(self, url: str, username: str, password: str):
+    def __init__(self, url: str, username: str, password: str,
+                 verify_tls: bool = True):
         parsed = urlparse(url)
         self.base_url = f"{parsed.scheme}://{parsed.hostname}"
         if parsed.port:
@@ -36,9 +38,22 @@ class MeshCentralClient:
             base64.b64encode(username.encode()).decode() + ","
             + base64.b64encode(password.encode()).decode() + ","
         )
-        self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        self._ssl_context.check_hostname = False
-        self._ssl_context.verify_mode = ssl.CERT_NONE
+        # This connection carries a MeshCentral administrator credential in a
+        # header, so an unverified peer is not a cosmetic problem - it is the
+        # credential handed to whoever answered. Verification is therefore on
+        # by default. MeshCentral is commonly run with a self-signed
+        # certificate, so the escape hatch exists, but it is a per-instance
+        # setting somebody has to choose and it says so in the log.
+        if verify_tls:
+            self._ssl_context = ssl.create_default_context()
+        else:
+            logger.warning(
+                "MeshCentral TLS verification is disabled for %s - the admin "
+                "credential is exposed to anyone who can intercept this "
+                "connection", self.base_url)
+            self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            self._ssl_context.check_hostname = False
+            self._ssl_context.verify_mode = ssl.CERT_NONE
 
     async def _send_command(self, command: dict) -> dict:
         """Open a WS connection, send a command, return the response."""
@@ -119,15 +134,107 @@ class MeshCentralClient:
         return f"{self.base_url}/?{params}"
 
 
-async def _get_mesh_settings(db: AsyncSession) -> dict | None:
-    """Load MeshCentral connection settings from AppSettings."""
+SETTINGS_KEY = "meshcentral"
+
+
+def _read_password(stored: str | None) -> str | None:
+    """Return the password, tolerating rows written before it was encrypted.
+
+    Encryption arrived after this integration shipped, so an existing
+    install has the password sitting in the JSON in clear. Rather than
+    demand the operator re-enter it, an undecryptable value is treated as
+    the legacy plaintext form - and `_row_needs_rewrite` then arranges for
+    it to be written back encrypted.
+    """
+    if not stored:
+        return None
+    try:
+        return decrypt(base64.b64decode(stored, validate=True))
+    except Exception:
+        return stored
+
+
+def _write_password(plain: str) -> str:
+    return base64.b64encode(encrypt(plain)).decode("ascii")
+
+
+def _is_encrypted(stored: str | None) -> bool:
+    if not stored:
+        return True
+    try:
+        decrypt(base64.b64decode(stored, validate=True))
+        return True
+    except Exception:
+        return False
+
+
+async def save_settings(db: AsyncSession, url: str, username: str,
+                        password: str | None, verify_tls: bool = True) -> dict:
+    """Persist connection settings, with the password encrypted at rest.
+
+    A blank password means "leave the stored one alone", so that editing the
+    URL does not require re-typing a credential the operator may not have.
+    """
     result = await db.execute(
-        select(AppSettings).where(AppSettings.key == "meshcentral")
+        select(AppSettings).where(AppSettings.key == SETTINGS_KEY))
+    row = result.scalar_one_or_none()
+    existing = dict(row.value) if row and row.value else {}
+
+    value = {"url": url.strip().rstrip("/"), "username": username,
+             "verify_tls": bool(verify_tls)}
+    if password:
+        value["password"] = _write_password(password)
+    elif existing.get("password"):
+        stored = existing["password"]
+        value["password"] = stored if _is_encrypted(stored) else _write_password(stored)
+
+    if row:
+        row.value = value
+    else:
+        row = AppSettings(key=SETTINGS_KEY, value=value)
+        db.add(row)
+    await db.flush()
+    return {"url": value["url"], "username": username,
+            "password_set": bool(value.get("password")),
+            "verify_tls": value["verify_tls"], "configured": True}
+
+
+async def public_settings(db: AsyncSession) -> dict:
+    """What the settings screen may see. Never the password itself."""
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.key == SETTINGS_KEY))
+    row = result.scalar_one_or_none()
+    if not row or not row.value:
+        return {"configured": False, "password_set": False, "verify_tls": True}
+    val = row.value
+    return {"url": val.get("url"), "username": val.get("username"),
+            "password_set": bool(val.get("password")),
+            "verify_tls": bool(val.get("verify_tls", True)),
+            "configured": True}
+
+
+async def _get_mesh_settings(db: AsyncSession) -> dict | None:
+    """Load MeshCentral connection settings, decrypting the password.
+
+    A legacy plaintext row is rewritten encrypted on the way past, so the
+    clear value stops existing the first time the integration is used
+    rather than waiting for somebody to re-save the form.
+    """
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.key == SETTINGS_KEY)
     )
     row = result.scalar_one_or_none()
     if not row or not row.value:
         return None
-    return row.value
+    val = dict(row.value)
+    stored = val.get("password")
+    if stored and not _is_encrypted(stored):
+        logger.info("Encrypting the stored MeshCentral password at rest")
+        row.value = {**val, "password": _write_password(stored)}
+        await db.flush()
+    val["password"] = _read_password(stored)
+    val["verify_tls"] = bool(val.get("verify_tls", True))
+    return val
 
 
 async def test_meshcentral(db: AsyncSession) -> dict:
@@ -139,6 +246,7 @@ async def test_meshcentral(db: AsyncSession) -> dict:
         url=settings["url"],
         username=settings["username"],
         password=settings["password"],
+        verify_tls=settings["verify_tls"],
     )
     meshes = await client.get_meshes()
     nodes = await client.get_nodes()
@@ -159,6 +267,7 @@ async def sync_meshcentral(db: AsyncSession) -> dict:
         url=settings["url"],
         username=settings["username"],
         password=settings["password"],
+        verify_tls=settings["verify_tls"],
     )
 
     now = datetime.now(timezone.utc)

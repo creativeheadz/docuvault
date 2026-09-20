@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export function MeshCentralSettings() {
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ url: '', username: '', password: '' })
+  const [form, setForm] = useState({ url: '', username: '', password: '', verify_tls: true })
   const [editing, setEditing] = useState(false)
 
   const { data: settings } = useQuery({
@@ -18,7 +18,7 @@ export function MeshCentralSettings() {
 
   useEffect(() => {
     if (settings?.url) {
-      setForm((f) => ({ ...f, url: settings.url || '', username: settings.username || '' }))
+      setForm((f) => ({ ...f, url: settings.url || '', username: settings.username || '', verify_tls: settings.verify_tls ?? true }))
     }
   }, [settings])
 
@@ -79,6 +79,11 @@ export function MeshCentralSettings() {
               </div>
               <div className="text-xs text-gray-500 mt-1">{settings?.url}</div>
               <div className="text-xs text-gray-500">User: {settings?.username}</div>
+              {settings?.verify_tls === false && (
+                <div className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                  Certificate checking is off — the admin credential is exposed to anyone who can intercept this connection.
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-2 mt-3">
@@ -125,6 +130,21 @@ export function MeshCentralSettings() {
             placeholder={isConfigured ? '(unchanged)' : ''}
             required={!isConfigured}
           />
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.verify_tls}
+              onChange={(e) => setForm({ ...form, verify_tls: e.target.checked })}
+              className="rounded border-gray-300 mt-0.5"
+            />
+            <span>
+              Verify the server's TLS certificate
+              <span className="block text-xs text-gray-500">
+                Leave this on unless MeshCentral uses a self-signed certificate. Your
+                administrator password is sent on this connection.
+              </span>
+            </span>
+          </label>
           <div className="flex gap-2">
             <Button type="submit" size="sm" loading={saveMutation.isPending}>Save</Button>
             {isConfigured && (

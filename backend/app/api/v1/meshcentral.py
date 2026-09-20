@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.app_settings import AppSettings
 from app.models.configuration import Configuration
 from app.models.user import User
 from app.services.meshcentral_service import (
     MeshCentralClient,
+    _get_mesh_settings,
+    public_settings,
+    save_settings,
     sync_meshcentral,
     test_meshcentral,
 )
@@ -24,13 +26,17 @@ router = APIRouter(prefix="/meshcentral", tags=["meshcentral"])
 class MeshSettingsIn(BaseModel):
     url: str
     username: str
-    password: str
+    # Blank means "keep the stored one" - editing the URL should not require
+    # re-typing a credential the operator may no longer have to hand.
+    password: str = ""
+    verify_tls: bool = True
 
 
 class MeshSettingsOut(BaseModel):
     url: str | None = None
     username: str | None = None
     password_set: bool = False
+    verify_tls: bool = True
     configured: bool = False
 
 
@@ -64,19 +70,7 @@ async def get_mesh_settings(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.key == "meshcentral")
-    )
-    row = result.scalar_one_or_none()
-    if not row or not row.value:
-        return MeshSettingsOut()
-    val = row.value
-    return MeshSettingsOut(
-        url=val.get("url"),
-        username=val.get("username"),
-        password_set=bool(val.get("password")),
-        configured=True,
-    )
+    return MeshSettingsOut(**await public_settings(db))
 
 
 @router.put("/settings", response_model=MeshSettingsOut)
@@ -85,23 +79,8 @@ async def save_mesh_settings(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.key == "meshcentral")
-    )
-    row = result.scalar_one_or_none()
-    value = {"url": body.url, "username": body.username, "password": body.password}
-    if row:
-        row.value = value
-    else:
-        row = AppSettings(key="meshcentral", value=value)
-        db.add(row)
-    await db.flush()
-    return MeshSettingsOut(
-        url=body.url,
-        username=body.username,
-        password_set=True,
-        configured=True,
-    )
+    return MeshSettingsOut(**await save_settings(
+        db, body.url, body.username, body.password, body.verify_tls))
 
 
 @router.post("/test", response_model=MeshTestResult)
@@ -143,15 +122,12 @@ async def get_remote_urls(
     if not config.mesh_node_id:
         raise HTTPException(status_code=400, detail="Not a MeshCentral device")
 
-    settings_result = await db.execute(
-        select(AppSettings).where(AppSettings.key == "meshcentral")
-    )
-    settings_row = settings_result.scalar_one_or_none()
-    if not settings_row or not settings_row.value:
+    val = await _get_mesh_settings(db)
+    if not val:
         raise HTTPException(status_code=400, detail="MeshCentral not configured")
 
-    val = settings_row.value
-    client = MeshCentralClient(val["url"], val["username"], val["password"])
+    client = MeshCentralClient(val["url"], val["username"], val["password"],
+                               verify_tls=val["verify_tls"])
     return MeshRemoteUrls(
         desktop=client.build_remote_url(config.mesh_node_id, viewmode=11),
         terminal=client.build_remote_url(config.mesh_node_id, viewmode=12),

@@ -450,6 +450,7 @@ export interface MeshCentralSettings {
   url: string | null
   username: string | null
   password_set: boolean
+  verify_tls: boolean
   configured: boolean
 }
 

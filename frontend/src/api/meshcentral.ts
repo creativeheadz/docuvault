@@ -6,7 +6,7 @@ export const getMeshSettings = async () => {
   return data
 }
 
-export const saveMeshSettings = async (body: { url: string; username: string; password: string }) => {
+export const saveMeshSettings = async (body: { url: string; username: string; password: string; verify_tls: boolean }) => {
   const { data } = await client.put<MeshCentralSettings>('/meshcentral/settings', body)
   return data
 }
