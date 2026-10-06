@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Response
@@ -17,6 +18,7 @@ from app.services.refresh_token_service import (RefreshRejected, issue_pair,
                                                 revoke, rotate)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 # Cookies are set here rather than in each route so that the flags cannot
 # drift apart. `secure` follows the deployment: a production instance is
@@ -69,6 +71,11 @@ async def mfa_verify(body: MfaVerifyRequest, request: Request, response: Respons
                      db: AsyncSession = Depends(get_db)):
     payload = decode_token(body.mfa_token)
     if not payload or payload.get("type") != "mfa_pending":
+        # A rejected second factor is worth a line in the log: without one, a
+        # person locked out at this step is indistinguishable from a person
+        # who mistyped, and nothing on the server says which (2026-10-06).
+        logger.warning("mfa-verify rejected: MFA token %s",
+                       "did not decode" if not payload else "has the wrong type")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired MFA token")
 
     user_id = payload.get("sub")
@@ -78,6 +85,8 @@ async def mfa_verify(body: MfaVerifyRequest, request: Request, response: Respons
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
     if not user or not user.totp_enabled:
+        logger.warning("mfa-verify rejected: user %s %s", user_id,
+                       "not found" if not user else "has MFA disabled")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or MFA not enabled")
 
     try:
@@ -89,6 +98,11 @@ async def mfa_verify(body: MfaVerifyRequest, request: Request, response: Respons
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)) from exc
     if not verify_totp_code(secret, body.totp_code):
+        # Shape only, never the code: enough to tell a wrong entry in an
+        # authenticator app from a request that did not carry six digits.
+        logger.warning("mfa-verify rejected for user %s: code did not match "
+                       "(%d chars, digits=%s)", user.id, len(body.totp_code),
+                       body.totp_code.isdigit())
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP code")
 
     ip, agent = _client(request)
