@@ -1,7 +1,8 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+# npm ci: the lock is the build, not a suggestion.
+RUN npm ci
 COPY . .
 RUN npm run build
 

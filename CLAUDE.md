@@ -12,6 +12,9 @@ docker compose down            # stop; add -v to drop the pgdata volume
 ```
 Migrations run automatically on backend startup (see `lifespan` in `backend/app/main.py`), and the seed user is created from `SEED_USERNAME` / `SEED_PASSWORD`.
 
+### Dependency pins
+`backend/requirements.lock` holds the exact versions of the last verified backend image and the Dockerfile installs against it as a pip constraints file (`-c`); `pyproject.toml` keeps the ranges that say what the app needs. The frontend image builds with `npm ci` against `package-lock.json`. A rebuild therefore reproduces what was running rather than resolving afresh (on 2026-10-06 an unpinned resolve picked up SQLAlchemy 2.1 and took the backend down). To upgrade something: change its line in the lock (or regenerate with `pip freeze --exclude-editable` from a container you have just verified), rebuild, run `pytest backend/tests` and the login path, commit the lock with the change.
+
 ### Backend (local, outside Docker)
 ```bash
 cd backend

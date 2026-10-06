@@ -6,8 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libpq-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]" 2>/dev/null || pip install --no-cache-dir .
+COPY pyproject.toml requirements.lock ./
+# requirements.lock pins every package to the image that was last verified;
+# pyproject.toml stays the statement of what the app needs.
+RUN pip install --no-cache-dir -c requirements.lock -e ".[dev]" 2>/dev/null \
+    || pip install --no-cache-dir -c requirements.lock .
 
 COPY . .
 
