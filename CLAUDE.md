@@ -49,7 +49,7 @@ cd backend && pip install -e ".[dev]" && pytest tests
 ```
 
 ### Tasks from a shell
-`tools/dvtasks.py` (standard library only; symlinked as `dvtasks` on Andrei's machine) reads and changes tasks with a `write:tasks` API key, so a coding assistant can keep a product roadmap here with no browser session and no call cap: `dvtasks ls`, `show <id>`, `add "title" --parent <id>`, `set <id> --status done`, `done <id>...`, `import tree.json`. Ids accept any unique prefix. Configuration lives in `~/.config/docuvault/config.json` (`dvtasks config --url ... --org ... --token-stdin`).
+`tools/dvtasks.py` (standard library only; symlinked as `dvtasks` on Andrei's machine) reads and changes tasks with a `write:tasks` API key, so a coding assistant can keep a product roadmap here with no browser session and no call cap: `dvtasks ls`, `show <id>`, `add "title" --parent <id>`, `set <id> --status done`, `done <id>...`, `import tree.json`. Ids accept any unique prefix. A repo says which organisation its tasks live under in a committed `.dvtasks.json` (`dvtasks init`); the key for it lives in `~/.config/docuvault/<profile>.json`. One key per project: `backend/scripts/mint_tasks_key.py` (run in the backend container, see its docstring) creates the organisation if needed and prints the key once, piped straight into `dvtasks config --profile <p> --mint-stdin`.
 
 ## Architecture
 

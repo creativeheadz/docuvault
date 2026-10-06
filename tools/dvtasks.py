@@ -10,9 +10,13 @@ organisation's tasks and nothing else in the vault.
 Standard library only, so it runs anywhere Python 3.10+ does.
 
 Configuration, in order of precedence: flags, then environment
-(DOCUVAULT_URL, DOCUVAULT_TOKEN, DOCUVAULT_ORG), then ~/.config/docuvault/
-config.json with the same three keys (url, token, organization_id).
-`dvtasks config` writes that file with mode 0600.
+(DOCUVAULT_URL, DOCUVAULT_TOKEN, DOCUVAULT_ORG, DOCUVAULT_PROFILE), then the
+repo's `.dvtasks.json` (organization_id and, optionally, profile - found by
+walking up from the current directory, so it can be committed at a repo
+root), then ~/.config/docuvault/<profile>.json or config.json with url,
+token and organization_id. `dvtasks config` writes that file with mode 0600;
+`dvtasks init` writes `.dvtasks.json`. One key per project is the intended
+shape: a profile is a key narrowed to that project's organisation.
 
 Task ids may be given as a full UUID or any unique prefix of one.
 """
@@ -29,7 +33,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-CONFIG_PATH = Path.home() / ".config" / "docuvault" / "config.json"
+CONFIG_DIR = Path.home() / ".config" / "docuvault"
+PROJECT_FILE = ".dvtasks.json"
 STATUSES = ("idea", "todo", "in_progress", "blocked", "done", "archived")
 PRIORITIES = ("low", "med", "high")
 HIDDEN_BY_DEFAULT = {"done", "archived"}
@@ -37,39 +42,88 @@ HIDDEN_BY_DEFAULT = {"done", "archived"}
 
 # ── configuration ────────────────────────────────────────────────────────
 
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        sys.exit(f"{path} is not valid JSON: {e}")
+
+
+def project_settings() -> tuple[dict, Path | None]:
+    """The nearest `.dvtasks.json` at or above the current directory."""
+    here = Path.cwd()
+    for d in (here, *here.parents):
+        f = d / PROJECT_FILE
+        if f.exists():
+            return _read_json(f), f
+    return {}, None
+
+
+def config_path(profile: str | None) -> Path:
+    return CONFIG_DIR / (f"{profile}.json" if profile else "config.json")
+
+
 def load_config(args) -> dict:
-    cfg = {}
-    if CONFIG_PATH.exists():
-        try:
-            cfg = json.loads(CONFIG_PATH.read_text())
-        except json.JSONDecodeError as e:
-            sys.exit(f"{CONFIG_PATH} is not valid JSON: {e}")
+    proj, _ = project_settings()
+    profile = getattr(args, "profile", None) or os.environ.get("DOCUVAULT_PROFILE") or proj.get("profile")
+    path = config_path(profile)
+    cfg = _read_json(path) if path.exists() else {}
     url = args.url or os.environ.get("DOCUVAULT_URL") or cfg.get("url")
     token = args.token or os.environ.get("DOCUVAULT_TOKEN") or cfg.get("token")
-    org = args.org or os.environ.get("DOCUVAULT_ORG") or cfg.get("organization_id")
+    org = (args.org or os.environ.get("DOCUVAULT_ORG") or proj.get("organization_id")
+           or cfg.get("organization_id"))
     if not url:
-        sys.exit("no DocuVault URL: pass --url, set DOCUVAULT_URL, or run `dvtasks config --url ...`")
+        sys.exit(f"no DocuVault URL: pass --url, set DOCUVAULT_URL, or run `dvtasks config --url ...` ({path})")
     if not token:
-        sys.exit("no API key: pass --token, set DOCUVAULT_TOKEN, or run `dvtasks config --token-stdin`")
-    return {"url": url.rstrip("/"), "token": token, "organization_id": org}
+        sys.exit(f"no API key for profile {profile or 'default'}: pass --token, set DOCUVAULT_TOKEN, "
+                 f"or run `dvtasks config --mint-stdin` / `--token-stdin` ({path})")
+    return {"url": url.rstrip("/"), "token": token, "organization_id": org, "profile": profile}
+
+
+def _write_private(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.chmod(stat.S_IRWXU)
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    path.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
 def cmd_config(args) -> None:
-    cfg = {}
-    if CONFIG_PATH.exists():
-        cfg = json.loads(CONFIG_PATH.read_text())
+    path = config_path(args.profile)
+    cfg = _read_json(path) if path.exists() else {}
     if args.url:
         cfg["url"] = args.url.rstrip("/")
+    if args.mint_stdin:
+        # The JSON that backend/scripts/mint_tasks_key.py prints exactly once.
+        minted = json.loads(sys.stdin.read())
+        cfg["token"] = minted["token"]
+        cfg["organization_id"] = minted["organization_id"]
+        cfg.setdefault("url", minted.get("url") or "https://crm.oldforge.tech")
     if args.token_stdin:
         cfg["token"] = sys.stdin.readline().strip()
     if args.org:
         cfg["organization_id"] = args.org
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.parent.chmod(stat.S_IRWXU)
-    CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n")
-    CONFIG_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    _write_private(path, cfg)
     shown = {k: (v[:8] + "..." if k == "token" and v else v) for k, v in cfg.items()}
-    print(f"wrote {CONFIG_PATH}: {json.dumps(shown)}")
+    print(f"wrote {path}: {json.dumps(shown)}")
+
+
+def cmd_init(args) -> None:
+    """Write `.dvtasks.json` in the current directory: which organisation this
+    repo's tasks live under and which key profile to use. The organisation id
+    is not a secret, so the file is meant to be committed."""
+    profile = args.profile
+    org = args.org
+    if not org:
+        path = config_path(profile)
+        cfg = _read_json(path) if path.exists() else {}
+        org = cfg.get("organization_id")
+    if not org:
+        sys.exit("no organisation id: pass --org, or `dvtasks config --mint-stdin` first")
+    data = {"organization_id": org}
+    if profile:
+        data["profile"] = profile
+    Path(PROJECT_FILE).write_text(json.dumps(data, indent=2) + "\n")
+    print(f"wrote ./{PROJECT_FILE}: {json.dumps(data)}")
 
 
 # ── HTTP ─────────────────────────────────────────────────────────────────
@@ -315,13 +369,18 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="dvtasks", description=__doc__.split("\n\n")[0])
     ap.add_argument("--url", help="DocuVault base URL (default: env DOCUVAULT_URL, then config)")
     ap.add_argument("--token", help="API key with write:tasks (default: env DOCUVAULT_TOKEN, then config)")
-    ap.add_argument("--org", help="organisation id to list under and create in (default: env DOCUVAULT_ORG, then config)")
+    ap.add_argument("--org", help="organisation id to list under and create in (default: env DOCUVAULT_ORG, .dvtasks.json, config)")
+    ap.add_argument("--profile", help="which ~/.config/docuvault/<profile>.json to use (default: env DOCUVAULT_PROFILE, .dvtasks.json, config.json)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("config", help="write ~/.config/docuvault/config.json")
+    p = sub.add_parser("config", help="write ~/.config/docuvault/<profile>.json (or config.json)")
     p.add_argument("--url"); p.add_argument("--org")
     p.add_argument("--token-stdin", action="store_true", help="read the key from the first line of stdin")
+    p.add_argument("--mint-stdin", action="store_true", help="read the JSON printed by backend/scripts/mint_tasks_key.py from stdin")
     p.set_defaults(fn=cmd_config, needs_client=False)
+
+    p = sub.add_parser("init", help="write ./.dvtasks.json for this repo (organisation id + profile)")
+    p.add_argument("--org"); p.set_defaults(fn=cmd_init, needs_client=False)
 
     p = sub.add_parser("ls", help="tree of tasks (done and archived hidden unless --all)")
     p.add_argument("--all", action="store_true"); p.add_argument("--status", choices=STATUSES)
