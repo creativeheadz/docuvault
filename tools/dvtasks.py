@@ -23,6 +23,7 @@ import json
 import os
 import stat
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -86,24 +87,31 @@ class Client:
             if clean:
                 url += "?" + urllib.parse.urlencode(clean)
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(url, data=data, method=method, headers={
-            "X-API-Key": self.token,
-            "Accept": "application/json",
-            **({"Content-Type": "application/json"} if data else {}),
-        })
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                raw = r.read()
-                return json.loads(raw) if raw else None
-        except urllib.error.HTTPError as e:
-            detail = e.read().decode(errors="replace")[:400]
+        # The public edge rate-limits /api; a bulk import trips it. Honour
+        # Retry-After (or wait a little) rather than failing half-way.
+        for attempt in range(6):
+            req = urllib.request.Request(url, data=data, method=method, headers={
+                "X-API-Key": self.token,
+                "Accept": "application/json",
+                **({"Content-Type": "application/json"} if data else {}),
+            })
             try:
-                detail = json.loads(detail).get("detail", detail)
-            except Exception:
-                pass
-            sys.exit(f"{method} {url} -> {e.code}: {detail}")
-        except urllib.error.URLError as e:
-            sys.exit(f"{method} {url} -> {e.reason}")
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    raw = r.read()
+                    return json.loads(raw) if raw else None
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 503) and attempt < 5:
+                    wait = e.headers.get("Retry-After")
+                    time.sleep(float(wait) if wait and wait.isdigit() else 2.0 * (attempt + 1))
+                    continue
+                detail = e.read().decode(errors="replace")[:400]
+                try:
+                    detail = json.loads(detail).get("detail", detail)
+                except Exception:
+                    pass
+                sys.exit(f"{method} {url} -> {e.code}: {detail}")
+            except urllib.error.URLError as e:
+                sys.exit(f"{method} {url} -> {e.reason}")
 
     def all_tasks(self, include_archived: bool = True) -> list[dict]:
         return self.call("GET", params={
@@ -287,6 +295,7 @@ def cmd_import(args, c: Client) -> None:
         })
         index[key] = t
         created += 1
+        time.sleep(0.25)   # stay under the edge's request rate
         print(_line(t, 0 if parent_id is None else 1))
         return t
 
