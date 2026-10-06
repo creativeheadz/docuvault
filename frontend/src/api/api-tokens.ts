@@ -14,6 +14,8 @@ export async function getApiTokens(): Promise<ApiToken[]> {
 export async function createApiToken(body: {
   name: string
   description?: string | null
+  /** Defaults to read:context on the server when omitted. */
+  scopes?: string[]
   organization_ids?: string[]
   expires_in_days?: number | null
 }): Promise<ApiTokenCreated> {

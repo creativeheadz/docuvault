@@ -40,7 +40,16 @@ npm run preview
 There is no separate `lint` or `typecheck` script — `npm run build` is the type-check gate.
 
 ### Endpoint smoke test
-`test_all_endpoints.py` at the repo root is an ad-hoc CRUD smoke test against a running backend (it expects `http://localhost:8000`). There is no pytest suite. Run with `python test_all_endpoints.py`.
+`test_all_endpoints.py` at the repo root is an ad-hoc CRUD smoke test against a running backend (it expects `http://localhost:8000`). Run with `python test_all_endpoints.py`.
+
+### Unit tests
+`backend/tests` is a pytest suite over the pure parts: token machinery, integration context, net guard, refresh tokens, and the routing-table guarantees around API keys. No database or server needed.
+```bash
+cd backend && pip install -e ".[dev]" && pytest tests
+```
+
+### Tasks from a shell
+`tools/dvtasks.py` (standard library only; symlinked as `dvtasks` on Andrei's machine) reads and changes tasks with a `write:tasks` API key, so a coding assistant can keep a product roadmap here with no browser session and no call cap: `dvtasks ls`, `show <id>`, `add "title" --parent <id>`, `set <id> --status done`, `done <id>...`, `import tree.json`. Ids accept any unique prefix. Configuration lives in `~/.config/docuvault/config.json` (`dvtasks config --url ... --org ... --token-stdin`).
 
 ## Architecture
 
@@ -56,6 +65,7 @@ New routers must be imported and `include_router`-ed in **`backend/app/api/v1/ro
 
 ### Auth & encryption
 - `core/dependencies.py::get_current_user` accepts JWTs from the `Authorization: Bearer …` header **or** an `access_token` cookie. The token must have `type == "access"` (refresh tokens use `type == "refresh"`).
+- **Machine keys** (`core/api_auth.py`) authenticate an `ApiToken` from the `X-API-Key` header and are never a user. Two scopes, each checked by exactly one router: `read:context` (`api/v1/integration.py`, via `require_token`) and `write:tasks` (`api/v1/tasks.py`, via `task_actor`, which accepts a person *or* a key and narrows a key to its organisations). `backend/tests/test_task_tokens.py` walks the routing table to prove no other route accepts a key and that revealing a password still takes a person. Adding a scope means: a constant in `models/api_token.py`, a `require_scope(...)` or actor in the one router that wants it, the scope list in `ApiKeysSettings.tsx`, and the allowlist in that test.
 - `core/encryption.py` (Fernet) encrypts password records. `ENCRYPTION_KEY` must be a base64-encoded 32-byte key — generate with `python -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"`. Rotating it invalidates every stored password.
 - Two-factor auth (TOTP) is optional per user; routes live under `/api/v1/mfa`.
 

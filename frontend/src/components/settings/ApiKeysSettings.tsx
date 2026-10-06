@@ -15,6 +15,24 @@ function when(value: string | null) {
 }
 
 /**
+ * What a key may do. Each scope is checked by exactly one router on the
+ * server, which asks for it by name; a key holds the scopes it was minted
+ * with and nothing widens them later. Neither reaches a stored password.
+ */
+const SCOPES: { id: string; label: string; detail: string }[] = [
+  {
+    id: 'read:context',
+    label: 'Read documentation',
+    detail: 'What an integration such as Wegweiser uses: organisations, devices, notes, runbooks.',
+  },
+  {
+    id: 'write:tasks',
+    label: 'Read and change tasks',
+    detail: 'What an assistant keeping a roadmap here uses. Tasks only, nothing else in the vault.',
+  },
+]
+
+/**
  * Keys that let another product read this documentation.
  *
  * The screen exists because the backend has always been able to mint these
@@ -26,6 +44,7 @@ export function ApiKeysSettings() {
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', expires_in_days: '' })
+  const [scopes, setScopes] = useState<string[]>(['read:context'])
   const [scopeToOrgs, setScopeToOrgs] = useState(false)
   const [orgIds, setOrgIds] = useState<string[]>([])
   const [justCreated, setJustCreated] = useState<ApiTokenCreated | null>(null)
@@ -46,6 +65,7 @@ export function ApiKeysSettings() {
       createApiToken({
         name: form.name.trim(),
         description: form.description.trim() || null,
+        scopes,
         organization_ids: scopeToOrgs ? orgIds : [],
         expires_in_days: form.expires_in_days ? Number(form.expires_in_days) : null,
       }),
@@ -55,6 +75,7 @@ export function ApiKeysSettings() {
       setJustCreated(created)
       setCreating(false)
       setForm({ name: '', description: '', expires_in_days: '' })
+      setScopes(['read:context'])
       setScopeToOrgs(false)
       setOrgIds([])
       queryClient.invalidateQueries({ queryKey: ['api-tokens'] })
@@ -107,9 +128,11 @@ export function ApiKeysSettings() {
 
       <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
         <div className="text-xs text-gray-500 mb-3">
-          Keys let another product read this documentation over the integration
-          API. A key carries the <code className="font-mono">read:context</code>{' '}
-          scope and cannot reach a stored password, whatever it is pointed at.
+          Keys let another system use this instance without a person signing in.
+          A key carries only the scopes it was minted with:{' '}
+          <code className="font-mono">read:context</code> reads documentation for an
+          integration, <code className="font-mono">write:tasks</code> reads and changes
+          tasks. Neither can reach a stored password, whatever it is pointed at.
         </div>
 
         {isLoading && <div className="text-sm text-gray-500">Loading…</div>}
@@ -141,6 +164,12 @@ export function ApiKeysSettings() {
                       <div className="text-xs text-gray-500 mt-0.5">{t.description}</div>
                     )}
                     <div className="text-xs text-gray-500 mt-0.5">
+                      {t.scopes.map((s) => (
+                        <code key={s} className="font-mono mr-1">
+                          {s}
+                        </code>
+                      ))}
+                      {' · '}
                       {t.organization_ids.length === 0
                         ? 'Every organisation'
                         : `${t.organization_ids.length} organisation${t.organization_ids.length === 1 ? '' : 's'}`}
@@ -200,6 +229,28 @@ export function ApiKeysSettings() {
               placeholder="Leave blank for no expiry"
             />
 
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm font-medium mb-1">What it may do</legend>
+              {SCOPES.map((sc) => (
+                <label key={sc.id} className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={scopes.includes(sc.id)}
+                    onChange={(e) =>
+                      setScopes((cur) =>
+                        e.target.checked ? [...cur, sc.id] : cur.filter((x) => x !== sc.id),
+                      )
+                    }
+                    className="rounded border-gray-300 mt-0.5"
+                  />
+                  <span>
+                    {sc.label} <code className="font-mono text-xs text-gray-500">{sc.id}</code>
+                    <span className="block text-xs text-gray-500">{sc.detail}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -211,9 +262,10 @@ export function ApiKeysSettings() {
                 className="rounded border-gray-300 mt-0.5"
               />
               <span>
-                Restrict to particular clients
+                Restrict to particular organisations
                 <span className="block text-xs text-gray-500">
-                  Otherwise the key reads every organisation.
+                  Otherwise the key covers every organisation. A restricted tasks key
+                  also cannot see tasks that belong to no organisation.
                 </span>
               </span>
             </label>
@@ -246,7 +298,9 @@ export function ApiKeysSettings() {
                 type="submit"
                 size="sm"
                 loading={createMutation.isPending}
-                disabled={!form.name.trim() || (scopeToOrgs && orgIds.length === 0)}
+                disabled={
+                  !form.name.trim() || scopes.length === 0 || (scopeToOrgs && orgIds.length === 0)
+                }
               >
                 Create key
               </Button>

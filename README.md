@@ -194,7 +194,7 @@ docuvault/
 
 ## API Overview
 
-All endpoints are prefixed with `/api/v1`. Authentication is via Bearer token (JWT).
+All endpoints are prefixed with `/api/v1`. Authentication is via Bearer token (JWT) for a signed-in person. Two routers also accept a machine key in the `X-API-Key` header, minted at **Settings → API keys**: `/integration` with the `read:context` scope and `/tasks` with the `write:tasks` scope. A key carries only the scopes it was minted with, can be narrowed to particular organisations, and cannot reach anything else — in particular not `/passwords`. The reasoning is in `backend/app/models/api_token.py`; `backend/tests/test_task_tokens.py` checks it against the routing table.
 
 | Resource | Endpoints | Description |
 |---|---|---|
@@ -222,6 +222,9 @@ All endpoints are prefixed with `/api/v1`. Authentication is via Bearer token (J
 | `/mfa` | Setup/verify | Two-factor authentication |
 | `/meshcentral` | Settings, sync, remote URLs | MeshCentral integration |
 | `/systems` | CRUD + chat | Chat-driven system documentation backed by Anthropic + MemPalace |
+| `/tasks` | CRUD | Projects, tasks and subtasks, optionally per organisation; a person or a `write:tasks` key |
+| `/api-tokens` | Issue, list, revoke | Machine keys and their scopes |
+| `/integration` | whoami, organizations, context, search | Read-only documentation for another product, `read:context` key |
 
 Full interactive documentation is available at `/docs` (Swagger UI) when the backend is running.
 
@@ -289,6 +292,8 @@ Records are the single source of truth; export to markdown or other formats happ
 - ✅ **Domain expiry auto-refresh** — RDAP lookup via [rdap.org](https://rdap.org/) bootstrap pulls registrar + expiration date for the Domains page. Raw RDAP response is stored in `whois_data` (jsonb) for later UI uses (nameservers, status flags surfaced in the expandable details panel).
 - ✅ **Hostname auto-resolve when adding a Configuration** — Wand button next to the Hostname field (and on-blur if IP is empty) calls the backend's `getaddrinfo` and pre-fills the IP. Reports A/AAAA counts on success.
 - ✅ **MeshCentral deep-link to the correct device** — `build_remote_url` now strips the `node//` prefix from the stored node id before passing it to `gotonode`, matching the format MeshCentral itself uses in its device-help email template (`nodeid.split('/')[2]`). Files viewmode also corrected from 15 → 13. Remote Desktop / Terminal / Files buttons now open the session attached to the right node.
+
+- ✅ **Tasks over the API with a scoped key** — a `write:tasks` API key lets a machine (a coding assistant keeping a product roadmap here) read and change tasks without a person's session and without ever reaching a password. `tools/dvtasks.py`, standard library only, is the shell client: `dvtasks ls`, `show`, `add`, `set`, `done`, `import`.
 
 ### Under exploration
 

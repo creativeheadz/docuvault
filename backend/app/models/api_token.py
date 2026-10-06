@@ -10,11 +10,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin
 
 
-# The only scope that exists today. Named rather than implied, because the
-# whole point of this table is that a token says what it may do and nothing
-# widens it later by accident.
-SCOPE_READ_CONTEXT = "read:context"
-VALID_SCOPES = (SCOPE_READ_CONTEXT,)
+# Scopes are named rather than implied, because the whole point of this table
+# is that a token says what it may do and nothing widens it later by accident.
+# Each scope is checked by exactly one router, which asks for it by name.
+SCOPE_READ_CONTEXT = "read:context"   # the integration router: read documentation
+SCOPE_WRITE_TASKS = "write:tasks"     # the tasks router: read and change tasks
+VALID_SCOPES = (SCOPE_READ_CONTEXT, SCOPE_WRITE_TASKS)
 
 TOKEN_PREFIX = "dvt_"
 
@@ -49,6 +50,14 @@ class ApiToken(TimestampMixin, Base):
     every client they document. Empty means every organisation, which is the
     sensible default for the single-tenant case and a deliberate choice
     rather than an absence.
+
+    `write:tasks` came second (2026-10-06), for a different consumer: a coding
+    assistant keeping a product roadmap in here, which has to add and move
+    tasks and must still never see a password. Same credential type, same
+    structural guarantee. The tasks router is the only other place an
+    ApiToken is accepted, it asks for `write:tasks` by name, and a key
+    narrowed to one organisation cannot see, create or move a task belonging
+    to any other - nor a task that belongs to none.
     """
 
     __tablename__ = "api_tokens"
@@ -83,6 +92,23 @@ class ApiToken(TimestampMixin, Base):
             return True
         return uuid.UUID(str(organization_id)) in [
             uuid.UUID(str(o)) for o in self.organization_ids]
+
+    def has_scope(self, scope: str) -> bool:
+        return scope in (self.scopes or [])
+
+    def rejection(self, now: datetime) -> str | None:
+        """Why this token must not authenticate right now, or None if it may.
+
+        A pure function of the row and the clock, so the two ways a key dies
+        can be tested without a database. The scope question is deliberately
+        not asked here: a revoked key is refused everywhere, a live key with
+        the wrong scope is refused by the router that wanted the other one.
+        """
+        if self.revoked_at is not None:
+            return "This API key has been revoked"
+        if self.expires_at is not None and self.expires_at <= now:
+            return "This API key has expired"
+        return None
 
     def __repr__(self) -> str:
         return f"<ApiToken {self.prefix} scopes={list(self.scopes)}>"
