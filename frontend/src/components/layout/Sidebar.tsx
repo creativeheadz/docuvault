@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Building2, MapPin, Users, Server, KeyRound,
   Globe, ShieldCheck, FileText, Puzzle, CheckSquare, BookOpen,
   Search, Settings, ChevronLeft, ChevronRight, ChevronDown, Boxes,
-  ListTodo, Shield, Cloud, UserCheck, ClipboardCheck,
+  ListTodo, Shield, Cloud, UserCheck, ClipboardCheck, Network,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -30,6 +30,7 @@ const workspaceItems: NavItem[] = [
   { path: '/locations',         label: 'Locations',      icon: MapPin },
   { path: '/contacts',          label: 'Contacts',       icon: Users },
   { path: '/configurations',    label: 'Configurations', icon: Server },
+  { path: '/network-maps',      label: 'Network Maps',   icon: Network },
   { path: '/systems',           label: 'Systems',        icon: Boxes },
   { path: '/passwords',         label: 'Passwords',      icon: KeyRound },
   { path: '/domains',           label: 'Domains',        icon: Globe },

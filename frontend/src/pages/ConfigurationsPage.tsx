@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getConfigurations, createConfiguration, updateConfiguration, deleteConfiguration, getFleetReadiness,
+  getConfigurations, getConfiguration, createConfiguration, updateConfiguration, deleteConfiguration, getFleetReadiness,
 } from '@/api/configurations'
+import { getMapPlacements } from '@/api/network-maps'
 import { getOrganizations } from '@/api/organizations'
 import { dnsLookup } from '@/api/dns'
 import { DataTable, type Column } from '@/components/ui/DataTable'
@@ -11,7 +13,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import {
   Server, Plus, Pencil, Trash2, Monitor, Terminal, Wand2, Loader2,
-  ShieldCheck, ShieldOff, ShieldAlert, AlertTriangle, ChevronDown, ChevronRight,
+  ShieldCheck, ShieldOff, ShieldAlert, AlertTriangle, ChevronDown, ChevronRight, Network,
 } from 'lucide-react'
 import type { Configuration, DeviceRole, MalwareProtection } from '@/types'
 import { getMeshRemoteUrls } from '@/api/meshcentral'
@@ -157,6 +159,14 @@ export default function ConfigurationsPage() {
   const { data: configs = [], isLoading } = useQuery({ queryKey: ['configurations'], queryFn: () => getConfigurations() })
   const { data: orgs } = useQuery({ queryKey: ['organizations', 1, ''], queryFn: () => getOrganizations({ page: 1, page_size: 100 }) })
   const { data: fleet } = useQuery({ queryKey: ['configurations', 'fleet-readiness'], queryFn: getFleetReadiness })
+  const { data: placements = [] } = useQuery({ queryKey: ['network-maps', 'placements'], queryFn: () => getMapPlacements() })
+  const onMaps = useMemo(() => {
+    const m = new Map<string, typeof placements>()
+    for (const p of placements) m.set(p.configuration_id, [...(m.get(p.configuration_id) ?? []), p])
+    return m
+  }, [placements])
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const errorDetail = (err: unknown): string => {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
@@ -217,6 +227,19 @@ export default function ConfigurationsPage() {
     setFormOpen(true)
   }
 
+  // A network map's "Open record" lands here with ?edit=<id>.
+  const editId = searchParams.get('edit')
+  useEffect(() => {
+    if (!editId) return
+    getConfiguration(editId)
+      .then(handleEdit)
+      .catch(() => toast.error('That record no longer exists'))
+      .finally(() => {
+        searchParams.delete('edit')
+        setSearchParams(searchParams, { replace: true })
+      })
+  }, [editId])
+
   const ceSummary = useMemo(() => {
     if (!fleet) return null
     const trouble = fleet.firewall_off + fleet.os_eol_now + fleet.no_malware_protection
@@ -231,8 +254,15 @@ export default function ConfigurationsPage() {
     { key: 'operating_system', header: 'OS', render: (i) => i.operating_system || '—' },
     { key: 'ce', header: 'CE', className: 'w-20', render: (i) => <CEBadge config={i} /> },
     { key: 'status', header: 'Status', render: (i) => <MeshStatusBadge config={i} /> },
-    { key: 'actions', header: '', className: 'w-36', render: (i) => (
+    { key: 'actions', header: '', className: 'w-44', render: (i) => (
       <div className="flex gap-1">
+        {onMaps.get(i.id)?.length ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); const p = onMaps.get(i.id)![0]; navigate(`/network-maps/${p.map_id}?focus=${i.id}`) }}
+            className="p-1 hover:bg-[var(--ember-wash)] rounded"
+            title={`On ${onMaps.get(i.id)!.map((p) => p.map_name).join(', ')}`}
+          ><Network className="h-4 w-4" style={{ color: 'var(--ember)' }} /></button>
+        ) : null}
         {i.mesh_node_id && (
           <>
             <button

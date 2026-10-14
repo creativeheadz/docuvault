@@ -12,6 +12,7 @@ import OrganizationsPage from '@/pages/OrganizationsPage'
 import LocationsPage from '@/pages/LocationsPage'
 import ContactsPage from '@/pages/ContactsPage'
 import ConfigurationsPage from '@/pages/ConfigurationsPage'
+import NetworkMapsPage from '@/pages/NetworkMapsPage'
 import SystemsPage from '@/pages/SystemsPage'
 import PasswordsPage from '@/pages/PasswordsPage'
 import DomainsPage from '@/pages/DomainsPage'
@@ -57,6 +58,7 @@ function AppRoutes() {
         <Route path="/locations" element={<LocationsPage />} />
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/configurations" element={<ConfigurationsPage />} />
+        <Route path="/network-maps/*" element={<NetworkMapsPage />} />
         <Route path="/systems/*" element={<SystemsPage />} />
         <Route path="/passwords" element={<PasswordsPage />} />
         <Route path="/domains" element={<DomainsPage />} />

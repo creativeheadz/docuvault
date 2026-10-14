@@ -735,3 +735,142 @@ export interface ApiTokenCreated extends ApiToken {
   /** Present only in the response that created it. There is no second copy. */
   token: string
 }
+
+// ── Network maps ─────────────────────────────────────────────────────────
+
+export type NodeKind =
+  | 'internet' | 'isp' | 'cloud'
+  | 'firewall' | 'router' | 'switch' | 'access_point'
+  | 'server' | 'virtual_machine' | 'nas'
+  | 'workstation' | 'laptop' | 'printer' | 'phone' | 'camera' | 'iot' | 'ups'
+  | 'other'
+
+export type LinkKind = 'ethernet' | 'fibre' | 'wifi' | 'wan' | 'vpn' | 'trunk' | 'logical'
+
+/** An uplink names the source's gateway (the target); everything else is a peer link. */
+export type LinkRole = 'uplink' | 'peer'
+
+export type ZoneTone = 'neutral' | 'ember' | 'blue' | 'green' | 'warn' | 'red'
+
+export interface MapNode {
+  id: string
+  configuration_id: string | null
+  kind: NodeKind
+  label: string | null
+  address: string | null
+  x: number
+  y: number
+  functions: string[]
+  notes: string | null
+}
+
+export interface MapLink {
+  id: string
+  source_node_id: string
+  target_node_id: string
+  role: LinkRole
+  kind: LinkKind
+  label: string | null
+  source_port: string | null
+  target_port: string | null
+  speed: string | null
+  vlan: string | null
+  notes: string | null
+}
+
+export interface MapZone {
+  id: string
+  label: string
+  x: number
+  y: number
+  width: number
+  height: number
+  tone: ZoneTone
+  notes: string | null
+}
+
+export interface MapViewport {
+  x: number
+  y: number
+  zoom: number
+}
+
+export interface MapRecordFirewallRule {
+  id: string
+  name: string
+  direction: string
+  protocol: string
+  external_port: string
+  internal_port: string | null
+  status: string
+}
+
+/** A configuration record, as much of it as a map draws on. */
+export interface MapRecord {
+  id: string
+  name: string
+  configuration_type: string | null
+  hostname: string | null
+  ip_address: string | null
+  mac_address: string | null
+  operating_system: string | null
+  os_version: string | null
+  manufacturer: string | null
+  model: string | null
+  serial_number: string | null
+  device_role: DeviceRole | null
+  mesh_node_id: string | null
+  mesh_agent_connected: boolean | null
+  mesh_last_sync_at: string | null
+  ce_in_scope: boolean
+  software_firewall_on: boolean | null
+  malware_protection: MalwareProtection | null
+  os_eol_date: string | null
+  last_patched_date: string | null
+  archived: boolean
+  firewall_rules: MapRecordFirewallRule[]
+}
+
+export interface NetworkMapSummary {
+  id: string
+  organization_id: string
+  organization_name: string | null
+  location_id: string | null
+  location_name: string | null
+  name: string
+  description: string | null
+  node_count: number
+  link_count: number
+  record_count: number
+  created_at: string
+  updated_at: string
+  preview: {
+    nodes: [number, number, NodeKind][]
+    links: [number, number][]
+    zones: [number, number, number, number][]
+  }
+}
+
+export interface NetworkMapDetail extends NetworkMapSummary {
+  version: number
+  viewport: MapViewport | null
+  nodes: MapNode[]
+  links: MapLink[]
+  zones: MapZone[]
+  records: MapRecord[]
+}
+
+export interface MapGraphSave {
+  version: number
+  viewport?: MapViewport | null
+  nodes: MapNode[]
+  links: MapLink[]
+  zones: MapZone[]
+}
+
+export interface MapPlacement {
+  configuration_id: string
+  map_id: string
+  map_name: string
+  node_id: string
+}
