@@ -18,8 +18,7 @@ from app.schemas.system import (
     ToolEvent,
 )
 from app.models.system import System
-from app.services import system_service
-from app.services.anthropic_chat import run_chat_turn
+from app.services import anthropic_chat, assistant_settings, openai_chat, system_service
 
 router = APIRouter(prefix="/systems", tags=["systems"])
 
@@ -154,12 +153,24 @@ async def post_chat_turn(
     history_rows = await system_service.list_chat_messages(db, system_id)
     history = [{"role": r.role, "content": r.content} for r in history_rows]
 
+    config = await assistant_settings.resolve(db)
+    run_chat_turn = (
+        openai_chat.run_chat_turn
+        if assistant_settings.uses_openai_api(config.provider)
+        else anthropic_chat.run_chat_turn
+    )
     try:
         assistant_text, tool_events, new_messages = await run_chat_turn(
-            db, system, body.message, history
+            db, system, body.message, history, config=config
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except openai_chat.ProviderError as e:
+        if e.status == 429:
+            raise HTTPException(status_code=429, detail=e.message)
+        if e.status is None or e.status >= 500:
+            raise HTTPException(status_code=503, detail=e.message)
+        raise HTTPException(status_code=502, detail=e.message)
     except anthropic.OverloadedError:
         raise HTTPException(
             status_code=503,

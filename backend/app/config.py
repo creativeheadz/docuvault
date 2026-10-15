@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # AI chat for the Systems documentation page
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-haiku-4-5"
+    DEEPSEEK_API_KEY: str = ""
+    IONOS_API_TOKEN: str = ""
+    MODEL_API_KEY: str = ""
     MEMPALACE_URL: str = ""
     MEMPALACE_TOKEN: str = ""
 

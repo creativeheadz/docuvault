@@ -21,9 +21,16 @@ import { SourceBadges } from '@/components/systems/badges'
 import { getAssistantSettings } from '@/api/assistant'
 
 
-// Per-million-token USD pricing, Anthropic first-party rates (2026-10).
-// Cache writes are 1.25x input (5-minute TTL).
+// Per-million-token USD pricing (2026-10). Anthropic cache writes are 1.25x
+// input (5-minute TTL); the OpenAI-compatible providers send no cache
+// columns, so theirs stay zero. DeepSeek prices are the peak rate.
 const PRICING_PER_MTOK: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+  'deepseek-flash':  { input: 0.3, output: 1.2, cacheRead: 0, cacheWrite: 0 },
+  'deepseek-v4-pro': { input: 1.32, output: 3.96, cacheRead: 0, cacheWrite: 0 },
+  'Llama-3.3-70B':   { input: 0.71, output: 0.71, cacheRead: 0, cacheWrite: 0 },
+  'gpt-oss':         { input: 0.17, output: 0.71, cacheRead: 0, cacheWrite: 0 },
+  // Muse Spark preview pricing is unpublished; tokens still count.
+  'muse-spark':      { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'fable-5-1':  { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
   'opus-5-5':   { input: 4, output: 20, cacheRead: 0.20, cacheWrite: 5 },
   'opus-5':     { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
