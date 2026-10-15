@@ -20,6 +20,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.api.v1.assistant import AssistantSettingsIn, AssistantTestIn  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.core.encryption import encrypt  # noqa: E402
 from app.models.system import System  # noqa: E402
@@ -163,6 +164,17 @@ def test_clear_key_only_forgets_the_active_provider():
 def test_save_rejects_an_unknown_provider():
     with pytest.raises(ValueError):
         _save(FakeSession(), provider="hal-9000", model="m")
+
+
+def test_a_two_kilobyte_ionos_token_passes_validation():
+    # IONOS issues the Model Hub token as a JWT of ~1.6KB; the 500-char cap
+    # rejected it with a 422 before anything ran.
+    save = AssistantSettingsIn(provider="ionos", model="meta-llama/Llama-3.3-70B-Instruct",
+                               api_key="x" * 2000)
+    assert len(save.api_key or "") == 2000
+    probe = AssistantTestIn(provider="ionos", model="meta-llama/Llama-3.3-70B-Instruct",
+                            api_key="y" * 2000)
+    assert len(probe.api_key or "") == 2000
 
 
 # ---- test: the on-screen values are what gets answered ----------------------

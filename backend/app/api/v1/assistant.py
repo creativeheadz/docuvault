@@ -16,12 +16,15 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 ProviderId = Literal["anthropic", "deepseek", "ionos", "muse"]
 
 MODEL_PATTERN = r"^[A-Za-z0-9._:@/-]+$"
+# IONOS issues its Model Hub token as a JWT of ~1.6KB, so this comfortably
+# exceeds any provider key seen so far rather than fitting the short ones.
+MAX_KEY_LENGTH = 8000
 
 
 class AssistantSettingsIn(BaseModel):
     provider: ProviderId = "anthropic"
     model: str = Field(..., min_length=3, max_length=100, pattern=MODEL_PATTERN)
-    api_key: str | None = Field(None, max_length=500)   # blank keeps the stored key
+    api_key: str | None = Field(None, max_length=MAX_KEY_LENGTH)   # blank keeps the stored key
     clear_key: bool = False                               # fall back to the environment's
     max_output_tokens: int = assistant_settings.DEFAULT_MAX_OUTPUT
     effort: str | None = None
@@ -33,7 +36,7 @@ class AssistantTestIn(BaseModel):
 
     provider: ProviderId | None = None
     model: str | None = Field(None, min_length=1, max_length=100, pattern=MODEL_PATTERN)
-    api_key: str | None = Field(None, max_length=500)
+    api_key: str | None = Field(None, max_length=MAX_KEY_LENGTH)
     max_output_tokens: int | None = None
     effort: str | None = None
 
