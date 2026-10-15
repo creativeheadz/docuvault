@@ -40,7 +40,6 @@ from typing import Any, Iterable
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.configuration import Configuration
 from app.models.contact import Contact
 from app.models.document import Document
 from app.models.organization import Organization
@@ -58,8 +57,9 @@ ITEM_LIMIT = 40
 # so a lookup that insists on one spelling silently returns nothing the first
 # time somebody writes "systems". Match a small alias set in both directions
 # and move on; being strict here buys nothing and costs the whole feature.
-_SYSTEM_TYPES = ("system", "systems")
-_CONFIG_TYPES = ("configuration", "configurations", "device", "devices")
+# A configuration was a machine's record until 020 made every record a
+# system; rows written before then still say so.
+_SYSTEM_TYPES = ("system", "systems", "configuration", "configurations", "device", "devices")
 _ORG_TYPES = ("organization", "organizations", "organisation", "organisations")
 
 
@@ -122,10 +122,9 @@ def _item(kind: str, title: str, text: str, updated_at, path: str) -> dict:
 async def _related_system_ids(db: AsyncSession, entity_ids: Iterable[uuid.UUID]) -> list[uuid.UUID]:
     """System ids linked to any of these entities, either way round.
 
-    Systems have no organisation column - they are a tenant-wide catalogue,
-    by design, because "our Microsoft 365 tenancy" is not owned by one client.
-    The link to a client or a machine is a relationship row, so that is where
-    this has to look.
+    An estate-wide system (no organisation: "our Microsoft 365 tenancy" is
+    not owned by one client) reaches a client or a machine through a
+    relationship row, so that is where this has to look.
     """
     ids = [i for i in entity_ids if i]
     if not ids:
@@ -140,33 +139,34 @@ async def _related_system_ids(db: AsyncSession, entity_ids: Iterable[uuid.UUID])
     return [r[0] for r in rows]
 
 
-async def match_configuration(db: AsyncSession, organization_ids, hostname=None,
-                              serial=None, name=None) -> Configuration | None:
+async def match_system(db: AsyncSession, organization_ids, hostname=None,
+                       serial=None, name=None) -> System | None:
     """The documented machine behind a Wegweiser device, or None.
 
     Ordered by how much a match is worth believing. Serial is a hardware
     fact and nothing else has it, so it wins outright. Hostname is next but
-    must be compared short-form as well: DocuVault rows imported from
-    MeshCentral carry `workstation-04` while the agent reports
+    must be compared short-form as well: systems imported from MeshCentral
+    carry `workstation-04` while the agent reports
     `workstation-04.clients.local`, and an exact-only comparison misses every
     domain-joined machine in the estate.
 
-    IP address is deliberately NOT a matcher. Every configuration synced from
+    IP address is deliberately NOT a matcher. Every system synced from
     MeshCentral carries the site's NAT address rather than the machine's, so
     matching on it would map every device at a client to whichever row
     happened to sort first.
     """
-    base = select(Configuration).where(
-        Configuration.archived_at.is_(None))
+    base = select(System).where(System.archived_at.is_(None))
     if organization_ids:
         ids = ([organization_ids] if not isinstance(organization_ids, (list, tuple, set))
                else list(organization_ids))
-        base = base.where(Configuration.organization_id.in_(ids))
+        base = base.where(System.organization_id.in_(ids))
+    else:
+        base = base.where(System.organization_id.isnot(None))
 
     serial = (serial or "").strip()
     if serial:
         row = (await db.execute(base.where(
-            func.lower(Configuration.serial_number) == serial.lower()))).scalars().first()
+            func.lower(System.serial_number) == serial.lower()))).scalars().first()
         if row is not None:
             return row
 
@@ -174,10 +174,10 @@ async def match_configuration(db: AsyncSession, organization_ids, hostname=None,
     if hostname:
         short = hostname.split(".")[0]
         row = (await db.execute(base.where(or_(
-            func.lower(Configuration.hostname) == hostname.lower(),
-            func.lower(Configuration.hostname) == short.lower(),
-            func.lower(Configuration.name) == hostname.lower(),
-            func.lower(Configuration.name) == short.lower(),
+            func.lower(System.hostname) == hostname.lower(),
+            func.lower(System.hostname) == short.lower(),
+            func.lower(System.name) == hostname.lower(),
+            func.lower(System.name) == short.lower(),
         )))).scalars().first()
         if row is not None:
             return row
@@ -185,43 +185,53 @@ async def match_configuration(db: AsyncSession, organization_ids, hostname=None,
     name = (name or "").strip()
     if name:
         row = (await db.execute(base.where(
-            func.lower(Configuration.name) == name.lower()))).scalars().first()
+            func.lower(System.name) == name.lower()))).scalars().first()
         if row is not None:
             return row
     return None
 
 
-def _configuration_item(cfg: Configuration) -> dict | None:
-    """A machine's own record as one readable block, or None if it says nothing.
+def _system_item(sysrec: System) -> dict | None:
+    """A system's own record as one readable block, or None if it says nothing.
 
-    The operator's note is the valuable half and the identity fields are
-    context for it. A configuration with no note, no role and no warranty
+    The written documentation is the valuable half and the identity fields
+    are context for it. A machine with no notes, no role and no warranty
     date tells a model nothing it did not already know from telemetry, and
     an empty item still costs tokens and still looks like evidence.
     """
     facts = []
-    if cfg.configuration_type:
-        facts.append(f"Type: {cfg.configuration_type}")
-    if cfg.device_role:
-        facts.append(f"Role: {cfg.device_role}")
-    if cfg.manufacturer or cfg.model:
-        facts.append(f"Hardware: {' '.join(x for x in (cfg.manufacturer, cfg.model) if x)}")
-    if cfg.warranty_expiration:
-        facts.append(f"Warranty expires: {cfg.warranty_expiration}")
-    if cfg.os_eol_date:
-        facts.append(f"OS end of life: {cfg.os_eol_date}")
-    if cfg.last_patched_date:
-        facts.append(f"Last patched (documented): {cfg.last_patched_date}")
-    if cfg.ce_in_scope is False:
+    if sysrec.category:
+        facts.append(f"Type: {sysrec.category}")
+    if sysrec.device_role:
+        facts.append(f"Role: {sysrec.device_role}")
+    if sysrec.manufacturer or sysrec.model:
+        facts.append(f"Hardware: {' '.join(x for x in (sysrec.manufacturer, sysrec.model) if x)}")
+    if sysrec.warranty_expiration:
+        facts.append(f"Warranty expires: {sysrec.warranty_expiration}")
+    if sysrec.os_eol_date:
+        facts.append(f"OS end of life: {sysrec.os_eol_date}")
+    if sysrec.last_patched_date:
+        facts.append(f"Last patched (documented): {sysrec.last_patched_date}")
+    if sysrec.organization_id and sysrec.ce_in_scope is False:
         facts.append("Marked out of scope for Cyber Essentials")
-    note = (cfg.notes or "").strip()
+    written = []
+    if sysrec.short_description:
+        written.append(sysrec.short_description)
+    if sysrec.body:
+        written.append(sysrec.body.strip())
+    if sysrec.snippets:
+        # Snippets are the operator's own key/value crib: "backup window",
+        # "licence renewal". Flattened rather than dropped because they
+        # are usually the most specific thing in the record.
+        written.append("\n".join(f"{k}: {v}" for k, v in sysrec.snippets.items() if v))
+    note = "\n\n".join(w for w in written if w)
     if not facts and not note:
         return None
     body = "\n".join(facts)
     if note:
-        body = f"{body}\n\nOperator note:\n{note}" if body else f"Operator note:\n{note}"
-    return _item("machine record", cfg.name, body, cfg.updated_at,
-                 f"/configurations/{cfg.id}")
+        body = f"{body}\n\n{note}" if body else note
+    kind = "machine record" if sysrec.organization_id else "system"
+    return _item(kind, sysrec.name, body, sysrec.updated_at, f"/systems/{sysrec.id}")
 
 
 async def _systems_items(db: AsyncSession, system_ids) -> list[dict]:
@@ -230,24 +240,20 @@ async def _systems_items(db: AsyncSession, system_ids) -> list[dict]:
     rows = (await db.execute(select(System).where(
         System.id.in_(list(system_ids)),
         System.archived_at.is_(None)))).scalars().all()
-    items = []
-    for sysrec in rows:
-        parts = []
-        if sysrec.short_description:
-            parts.append(sysrec.short_description)
-        if sysrec.body:
-            parts.append(sysrec.body)
-        if sysrec.snippets:
-            # Snippets are the operator's own key/value crib: "backup window",
-            # "licence renewal". Flattened rather than dropped because they
-            # are usually the most specific thing in the record.
-            parts.append("\n".join(f"{k}: {v}" for k, v in sysrec.snippets.items() if v))
-        text = "\n\n".join(p for p in parts if p)
-        if not text:
-            continue
-        items.append(_item("system", sysrec.name, text, sysrec.updated_at,
-                           f"/systems/{sysrec.slug}"))
-    return items
+    return [item for item in (_system_item(r) for r in rows) if item]
+
+
+async def _documented_systems_items(db: AsyncSession, organization_id, limit=10) -> list[dict]:
+    """An organisation's systems that somebody wrote something about.
+
+    Most of a client's systems are inventory a sync put there; only the ones
+    with words on them say anything telemetry does not."""
+    rows = (await db.execute(select(System).where(
+        System.organization_id == organization_id,
+        System.archived_at.is_(None),
+        or_(System.body.isnot(None), System.short_description.isnot(None)),
+    ).order_by(System.updated_at.desc()).limit(limit))).scalars().all()
+    return [item for item in (_system_item(r) for r in rows) if item]
 
 
 async def _runbook_items(db: AsyncSession, organization_id, limit=10) -> list[dict]:
@@ -350,12 +356,12 @@ async def organization_context(db: AsyncSession, organization_ids, hostname=None
     # the caller is the one who knows which matters most.
     ordered = [by_id[i] for i in ids if i in by_id]
 
-    cfg = await match_configuration(db, [o.id for o in ordered], hostname,
-                                    serial, device_name)
+    cfg = await match_system(db, [o.id for o in ordered], hostname,
+                             serial, device_name)
 
     items: list[dict] = []
     if cfg is not None:
-        cfg_item = _configuration_item(cfg)
+        cfg_item = _system_item(cfg)
         if cfg_item:
             items.append(cfg_item)
         # Systems attached to this machine specifically, before the client's.
@@ -378,6 +384,7 @@ async def organization_context(db: AsyncSession, organization_ids, hostname=None
         if len(items) >= ITEM_LIMIT:
             break
         add(await _systems_items(db, await _related_system_ids(db, [org.id])))
+        add(await _documented_systems_items(db, org.id))
         add(await _runbook_items(db, org.id))
         add(await _document_items(db, org.id))
         contacts = await _contact_item(db, org.id)
@@ -389,15 +396,19 @@ async def organization_context(db: AsyncSession, organization_ids, hostname=None
 
     primary = client_orgs[0]
     truncated = len(items) > ITEM_LIMIT
+    matched = None if cfg is None else {
+        "id": str(cfg.id), "name": cfg.name, "hostname": cfg.hostname,
+        "serial_number": cfg.serial_number,
+        "mesh_node_id": cfg.mesh_node_id,
+        "path": f"/systems/{cfg.id}"}
     return {
         "found": True,
         "organization": {"id": str(primary.id), "name": primary.name,
                          "path": f"/organizations/{primary.id}"},
-        "matched_configuration": None if cfg is None else {
-            "id": str(cfg.id), "name": cfg.name, "hostname": cfg.hostname,
-            "serial_number": cfg.serial_number,
-            "mesh_node_id": cfg.mesh_node_id,
-            "path": f"/configurations/{cfg.id}"},
+        "matched_system": matched,
+        # The same, under the name Wegweiser read before 020; kept until it
+        # reads matched_system.
+        "matched_configuration": matched,
         "items": items[:ITEM_LIMIT],
         "truncated": truncated,
     }
@@ -420,13 +431,19 @@ async def search_context(db: AsyncSession, query: str, organization_ids=None,
     like = f"%{q}%"
     items: list[dict] = []
 
-    sys_rows = (await db.execute(select(System).where(
+    sys_q = select(System).where(
         System.archived_at.is_(None),
-        or_(System.name.ilike(like), System.short_description.ilike(like),
-            System.body.ilike(like))).limit(limit))).scalars().all()
-    for s in sys_rows:
-        text = "\n\n".join(p for p in (s.short_description, s.body) if p)
-        items.append(_item("system", s.name, text, s.updated_at, f"/systems/{s.slug}"))
+        or_(System.name.ilike(like), System.hostname.ilike(like),
+            System.short_description.ilike(like), System.body.ilike(like)))
+    if organization_ids:
+        # Estate-wide systems belong to no client and were always readable;
+        # a client's machines only by a caller allowed that client.
+        sys_q = sys_q.where(or_(System.organization_id.is_(None),
+                                System.organization_id.in_(list(organization_ids))))
+    for s in (await db.execute(sys_q.limit(limit))).scalars().all():
+        item = _system_item(s)
+        if item:
+            items.append(item)
 
     rb_q = select(Runbook).where(
         Runbook.archived_at.is_(None),

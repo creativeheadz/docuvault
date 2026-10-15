@@ -137,19 +137,19 @@ def test_contacts():
         api("PUT", f"/contacts/{contact['id']}", {"title": "CEO", "notes": "Promoted"})
 
 
-def test_configurations():
-    print("\n=== CONFIGURATIONS (list, create, get, update, delete) ===")
+def test_systems():
+    print("\n=== SYSTEMS (list, create, get, update, delete) ===")
     org_id = CREATED_IDS.get("org")
     if not org_id:
         print("  SKIP: no org_id")
         return
 
-    api("GET", "/configurations", params={"organization_id": org_id})
+    api("GET", "/systems", params={"organization_id": org_id})
 
-    config = api("POST", "/configurations", {
+    config = api("POST", "/systems", {
         "organization_id": org_id,
         "name": "Web Server 01",
-        "configuration_type": "Server",
+        "category": "Server",
         "hostname": "web01.testorg.com",
         "ip_address": "192.168.1.10",
         "mac_address": "AA:BB:CC:DD:EE:FF",
@@ -159,12 +159,12 @@ def test_configurations():
         "manufacturer": "Dell",
         "model": "PowerEdge R640",
         "warranty_expiration": "2027-06-15",
-        "notes": "Production web server"
+        "body": "Production web server"
     })
     if config:
         CREATED_IDS["config"] = config["id"]
-        api("GET", f"/configurations/{config['id']}")
-        api("PUT", f"/configurations/{config['id']}", {"name": "Web Server 01 Updated", "os_version": "24.04 LTS"})
+        api("GET", f"/systems/{config['id']}")
+        api("PUT", f"/systems/{config['id']}", {"name": "Web Server 01 Updated", "os_version": "24.04 LTS"})
 
 
 def test_passwords():
@@ -469,7 +469,7 @@ def test_relationships():
     rel = api("POST", "/relationships", {
         "source_type": "organization",
         "source_id": org_id,
-        "target_type": "configuration",
+        "target_type": "system",
         "target_id": config_id,
         "relationship_type": "has_configuration"
     })
@@ -632,7 +632,7 @@ if __name__ == "__main__":
     test_organizations()
     test_locations()
     test_contacts()
-    test_configurations()
+    test_systems()
     test_passwords()
     test_domains()
     test_ssl_certificates()

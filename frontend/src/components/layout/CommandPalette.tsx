@@ -5,12 +5,12 @@ import { Badge } from '@/components/ui/Badge'
 import { Search, Building2, Server, KeyRound, FileText, Globe, ShieldCheck, Users, MapPin } from 'lucide-react'
 
 const entityIcons: Record<string, typeof Building2> = {
-  organization: Building2, configuration: Server, password: KeyRound, document: FileText,
+  organization: Building2, system: Server, password: KeyRound, document: FileText,
   domain: Globe, ssl_certificate: ShieldCheck, contact: Users, location: MapPin,
 }
 
 const entityRoutes: Record<string, string> = {
-  organization: '/organizations', configuration: '/configurations', password: '/passwords',
+  organization: '/organizations', system: '/systems', password: '/passwords',
   document: '/documents', domain: '/domains', ssl_certificate: '/ssl-certificates',
   contact: '/contacts', location: '/locations',
 }

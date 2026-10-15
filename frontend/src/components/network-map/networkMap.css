@@ -54,7 +54,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: calc(100% - 520px);
+  max-width: calc(100% - 580px);
   min-width: 0;
   padding: 8px 14px 8px 8px;
   background: color-mix(in srgb, var(--bg-2) 92%, transparent);

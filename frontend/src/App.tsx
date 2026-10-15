@@ -11,14 +11,12 @@ import DashboardPage from '@/pages/DashboardPage'
 import OrganizationsPage from '@/pages/OrganizationsPage'
 import LocationsPage from '@/pages/LocationsPage'
 import ContactsPage from '@/pages/ContactsPage'
-import ConfigurationsPage from '@/pages/ConfigurationsPage'
 import NetworkMapsPage from '@/pages/NetworkMapsPage'
 import SystemsPage from '@/pages/SystemsPage'
 import PasswordsPage from '@/pages/PasswordsPage'
 import DomainsPage from '@/pages/DomainsPage'
 import SSLCertificatesPage from '@/pages/SSLCertificatesPage'
 import DocumentsPage from '@/pages/DocumentsPage'
-import FlexibleAssetsPage from '@/pages/FlexibleAssetsPage'
 import ChecklistsPage from '@/pages/ChecklistsPage'
 import RunbooksPage from '@/pages/RunbooksPage'
 import TasksPage from '@/pages/TasksPage'
@@ -57,14 +55,15 @@ function AppRoutes() {
         <Route path="/organizations/*" element={<OrganizationsPage />} />
         <Route path="/locations" element={<LocationsPage />} />
         <Route path="/contacts" element={<ContactsPage />} />
-        <Route path="/configurations" element={<ConfigurationsPage />} />
+        {/* Configurations and Assets were folded into Systems (2026-10-15). */}
+        <Route path="/configurations" element={<Navigate to="/systems" replace />} />
         <Route path="/network-maps/*" element={<NetworkMapsPage />} />
         <Route path="/systems/*" element={<SystemsPage />} />
         <Route path="/passwords" element={<PasswordsPage />} />
         <Route path="/domains" element={<DomainsPage />} />
         <Route path="/ssl-certificates" element={<SSLCertificatesPage />} />
         <Route path="/documents/*" element={<DocumentsPage />} />
-        <Route path="/flexible-assets/*" element={<FlexibleAssetsPage />} />
+        <Route path="/flexible-assets/*" element={<Navigate to="/systems" replace />} />
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/runbooks" element={<RunbooksPage />} />
         <Route path="/tasks" element={<TasksPage />} />

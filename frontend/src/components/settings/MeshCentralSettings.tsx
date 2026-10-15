@@ -56,7 +56,7 @@ export function MeshCentralSettings() {
       if (data.devices_updated) parts.push(`${data.devices_updated} devices updated`)
       parts.push(`${data.online} online, ${data.offline} offline`)
       toast.success(`Sync complete: ${parts.join(', ')}`)
-      queryClient.invalidateQueries({ queryKey: ['configurations'] })
+      queryClient.invalidateQueries({ queryKey: ['systems'] })
       queryClient.invalidateQueries({ queryKey: ['organizations'] })
     },
     onError: () => toast.error('Sync failed'),

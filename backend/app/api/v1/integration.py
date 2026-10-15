@@ -9,7 +9,7 @@ password, because those routes depend on a user.
 The shape is built for a language model rather than a UI. See
 `app.services.integration_context` for what an `item` is and why.
 
-Nothing here writes. Write-back (a health score landing on a configuration,
+Nothing here writes. Write-back (a health score landing on a system,
 an analysis archived as a document) is a second, separate scope and a second,
 separate router, so that an MSP can grant reading without granting writing
 and can see which one they granted.
@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.api_auth import assert_may_read, require_token
 from app.core.database import get_db
 from app.models.api_token import ApiToken
-from app.models.configuration import Configuration
+from app.models.system import System
 from app.models.organization import Organization
 from app.services import integration_context as ctx
 
@@ -44,6 +44,10 @@ class WhoAmI(BaseModel):
     scopes: list[str]
     organization_scope: int   # 0 = every organisation
     organizations: int
+    # Systems that belong to an organisation, i.e. machines on a client's
+    # network. `configurations` is the same number under the name used
+    # before 020, kept until every caller reads `systems`.
+    systems: int
     configurations: int
 
 
@@ -61,11 +65,12 @@ async def whoami(token: ApiToken = Depends(require_token),
     """
     org_q = select(func.count()).select_from(Organization).where(
         Organization.archived_at.is_(None))
-    cfg_q = select(func.count()).select_from(Configuration).where(
-        Configuration.archived_at.is_(None))
+    sys_q = select(func.count()).select_from(System).where(
+        System.archived_at.is_(None), System.organization_id.isnot(None))
     if token.organization_ids:
         org_q = org_q.where(Organization.id.in_(list(token.organization_ids)))
-        cfg_q = cfg_q.where(Configuration.organization_id.in_(list(token.organization_ids)))
+        sys_q = sys_q.where(System.organization_id.in_(list(token.organization_ids)))
+    systems = (await db.execute(sys_q)).scalar_one()
 
     return WhoAmI(
         ok=True,
@@ -74,7 +79,8 @@ async def whoami(token: ApiToken = Depends(require_token),
         scopes=list(token.scopes or []),
         organization_scope=len(token.organization_ids or []),
         organizations=(await db.execute(org_q)).scalar_one(),
-        configurations=(await db.execute(cfg_q)).scalar_one(),
+        systems=systems,
+        configurations=systems,
     )
 
 
@@ -82,7 +88,8 @@ class OrgSummary(BaseModel):
     id: uuid.UUID
     name: str
     description: str | None = None
-    configurations: int
+    systems: int
+    configurations: int   # = systems, the pre-020 name
     path: str
 
 
@@ -95,7 +102,7 @@ async def list_organizations(token: ApiToken = Depends(require_token),
     documenting more organisations than fit in one JSON body is not a case
     that exists, and the first thing a paginated import endpoint produces is
     a partial import that nobody notices - which is exactly how DocuVault's
-    own configuration dedupe created eight duplicate rows against a list
+    own machine dedupe created eight duplicate rows against a list
     endpoint that silently stopped at 25.
     """
     q = select(Organization).where(Organization.archived_at.is_(None))
@@ -104,11 +111,12 @@ async def list_organizations(token: ApiToken = Depends(require_token),
     orgs = (await db.execute(q.order_by(Organization.name))).scalars().all()
 
     counts = dict((await db.execute(
-        select(Configuration.organization_id, func.count())
-        .where(Configuration.archived_at.is_(None))
-        .group_by(Configuration.organization_id))).all())
+        select(System.organization_id, func.count())
+        .where(System.archived_at.is_(None), System.organization_id.isnot(None))
+        .group_by(System.organization_id))).all())
 
     return [OrgSummary(id=o.id, name=o.name, description=o.description,
+                       systems=counts.get(o.id, 0),
                        configurations=counts.get(o.id, 0),
                        path=f"/organizations/{o.id}") for o in orgs]
 

@@ -25,7 +25,7 @@ from app.core import api_auth                                         # noqa: E4
 from app.core.api_auth import assert_scope, require_scope, require_token  # noqa: E402
 from app.core.dependencies import get_current_user                    # noqa: E402
 from app.models.api_token import (ApiToken, SCOPE_READ_CONTEXT,       # noqa: E402
-                                  SCOPE_WRITE_TASKS, VALID_SCOPES)
+                                  SCOPE_WRITE_SYSTEMS, SCOPE_WRITE_TASKS, VALID_SCOPES)
 from app.models.task import Task                                      # noqa: E402
 
 ORG_A = uuid.UUID('11111111-1111-1111-1111-111111111111')
@@ -39,10 +39,23 @@ def _key(scopes, orgs=()):
 
 # ── scopes ───────────────────────────────────────────────────────────────
 
-def test_both_scopes_are_known_and_distinct():
-    assert SCOPE_READ_CONTEXT in VALID_SCOPES
-    assert SCOPE_WRITE_TASKS in VALID_SCOPES
-    assert SCOPE_READ_CONTEXT != SCOPE_WRITE_TASKS
+def test_every_scope_is_known_and_distinct():
+    assert set(VALID_SCOPES) == {SCOPE_READ_CONTEXT, SCOPE_WRITE_TASKS, SCOPE_WRITE_SYSTEMS}
+    assert len(set(VALID_SCOPES)) == len(VALID_SCOPES)
+
+
+@pytest.mark.parametrize('held,wanted', [
+    (SCOPE_READ_CONTEXT, SCOPE_WRITE_SYSTEMS),
+    (SCOPE_WRITE_TASKS, SCOPE_WRITE_SYSTEMS),
+    (SCOPE_WRITE_SYSTEMS, SCOPE_READ_CONTEXT),
+    (SCOPE_WRITE_SYSTEMS, SCOPE_WRITE_TASKS),
+])
+def test_the_inventory_scope_neither_widens_nor_is_widened(held, wanted):
+    """The key Wegweiser reads with cannot push machines, and the key it
+    pushes with reads no client notes and moves no tasks."""
+    with pytest.raises(HTTPException) as e:
+        assert_scope(_key([held]), wanted)
+    assert e.value.status_code == 403
 
 
 def test_a_documentation_key_cannot_write_tasks():
@@ -71,6 +84,7 @@ def test_require_token_still_means_read_context():
     for the scope it always asked for."""
     assert require_token.__name__ == 'require_read_context'
     assert require_scope(SCOPE_WRITE_TASKS).__name__ == 'require_write_tasks'
+    assert require_scope(SCOPE_WRITE_SYSTEMS).__name__ == 'require_write_systems'
 
 
 # ── liveness ─────────────────────────────────────────────────────────────
@@ -169,13 +183,16 @@ def test_the_routing_table_is_not_empty():
     assert '/api/v1/integration/whoami' in paths
 
 
-def test_only_tasks_and_integration_accept_a_key():
+KEYED = ('/api/v1/tasks', '/api/v1/integration', '/api/v1/inventory')
+
+
+def test_only_tasks_integration_and_inventory_accept_a_key():
     """The guarantee in `ApiToken`'s docstring, checked against the app
-    rather than promised: outside these two routers, no route depends on
+    rather than promised: outside these three routers, no route depends on
     anything that would accept an X-API-Key."""
     strays = []
     for path, r in _routes():
-        if path.startswith('/api/v1/tasks') or path.startswith('/api/v1/integration'):
+        if path.startswith(KEYED):
             continue
         if any(_accepts_a_key(fn) for fn in _calls(r.dependant)):
             strays.append(f'{sorted(r.methods)} {path}')
@@ -198,3 +215,14 @@ def test_revealing_a_password_still_takes_a_person():
         calls = _calls(r.dependant)
         assert get_current_user in calls, path
         assert not any(_accepts_a_key(fn) for fn in calls), path
+
+
+def test_every_inventory_route_asks_for_write_systems_and_nothing_wider():
+    from app.api.v1.inventory import require_write_systems
+    routes = [(p, r) for p, r in _routes() if p.startswith('/api/v1/inventory')]
+    assert routes, 'no inventory route found - the test would prove nothing'
+    for path, r in routes:
+        calls = _calls(r.dependant)
+        assert require_write_systems in calls, path
+        assert get_current_user not in calls, path
+        assert task_actor not in calls, path

@@ -13,13 +13,13 @@ const SIDES = [
 ]
 
 /**
- * A device plate. Solid edge: backed by a configuration record. Dashed:
+ * A device plate. Solid edge: backed by a system record. Dashed:
  * sketched on the map only. The bar down the left is the live signal.
  */
 export const DeviceNodeView = memo(function DeviceNodeView({ id, data, selected }: NodeProps<DeviceNode>) {
   const view = useMapView()
   const connection = useConnection()
-  const record = data.configuration_id ? view.records.get(data.configuration_id) : undefined
+  const record = data.system_id ? view.records.get(data.system_id) : undefined
   const live = view.live.get(id) ?? UNKNOWN
   const meta = NODE_KINDS[data.kind] ?? NODE_KINDS.other
   const Icon = meta.icon
@@ -39,7 +39,7 @@ export const DeviceNodeView = memo(function DeviceNodeView({ id, data, selected 
         'nm-device',
         `tier-${meta.tier}`,
         outside && 'nm-device--outside',
-        !data.configuration_id && 'is-sketch',
+        !data.system_id && 'is-sketch',
         record?.archived && 'is-archived',
         selected && 'is-selected',
         view.pathNodes.has(id) && 'is-path',
@@ -53,7 +53,7 @@ export const DeviceNodeView = memo(function DeviceNodeView({ id, data, selected 
         <span className="nm-glyph"><Icon /></span>
         <span className="nm-kicker">
           {meta.label}
-          {record && <span className="nm-rec" title="Backed by a configuration record">◆</span>}
+          {record && <span className="nm-rec" title="Backed by a system record">◆</span>}
         </span>
         {live.state !== 'unknown' && <span className="nm-dot" title={live.summary} />}
       </div>

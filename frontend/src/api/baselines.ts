@@ -6,16 +6,16 @@ export const getAllBaselineApplications = async () => {
   return data
 }
 
-export const getBaselinesForConfiguration = async (configurationId: string) => {
-  const { data } = await client.get<BaselineApplication[]>(`/baselines/by-configuration/${configurationId}`)
+export const getBaselinesForSystem = async (systemId: string) => {
+  const { data } = await client.get<BaselineApplication[]>(`/baselines/by-system/${systemId}`)
   return data
 }
 
 export const applyBaseline = async (
-  configurationId: string,
+  systemId: string,
   body: { checklist_id: string; review_period_months?: number; last_verified_date?: string },
 ) => {
-  const { data } = await client.post<BaselineApplication>(`/baselines/by-configuration/${configurationId}`, body)
+  const { data } = await client.post<BaselineApplication>(`/baselines/by-system/${systemId}`, body)
   return data
 }
 

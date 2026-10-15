@@ -6,14 +6,14 @@ import {
   removeBaselineApplication, getBaselineStats,
 } from '@/api/baselines'
 import { getChecklists, updateChecklist } from '@/api/checklists'
-import { getConfigurations } from '@/api/configurations'
+import { getSystems } from '@/api/systems'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import {
   ClipboardCheck, Plus, Trash2, AlertTriangle, Clock, CheckCircle2,
   ToggleLeft, ToggleRight, ExternalLink,
 } from 'lucide-react'
-import type { BaselineApplication, Checklist, Configuration } from '@/types'
+import type { BaselineApplication, Checklist, System } from '@/types'
 import toast from 'react-hot-toast'
 
 const errorDetail = (err: unknown): string => {
@@ -45,7 +45,7 @@ function ReviewBadge({ app }: { app: BaselineApplication }) {
 export default function BaselinesPage() {
   const queryClient = useQueryClient()
   const [applyModalOpen, setApplyModalOpen] = useState(false)
-  const [applyForm, setApplyForm] = useState({ configuration_id: '', checklist_id: '', review_period_months: 6 })
+  const [applyForm, setApplyForm] = useState({ system_id: '', checklist_id: '', review_period_months: 6 })
 
   const { data: applications = [] } = useQuery({
     queryKey: ['baseline-applications'],
@@ -56,9 +56,9 @@ export default function BaselinesPage() {
     queryKey: ['checklists', 'all'],
     queryFn: () => getChecklists({ page_size: 100 }),
   })
-  const { data: configurations = [] } = useQuery({
-    queryKey: ['configurations'],
-    queryFn: () => getConfigurations({ page: 1, page_size: 100 }),
+  const { data: systems = [] } = useQuery({
+    queryKey: ['systems'],
+    queryFn: () => getSystems(),
   })
 
   const baselines = useMemo(
@@ -85,14 +85,14 @@ export default function BaselinesPage() {
   })
 
   const applyMut = useMutation({
-    mutationFn: () => applyBaseline(applyForm.configuration_id, {
+    mutationFn: () => applyBaseline(applyForm.system_id, {
       checklist_id: applyForm.checklist_id,
       review_period_months: applyForm.review_period_months,
     }),
     onSuccess: () => {
       invalidate()
       setApplyModalOpen(false)
-      setApplyForm({ configuration_id: '', checklist_id: '', review_period_months: 6 })
+      setApplyForm({ system_id: '', checklist_id: '', review_period_months: 6 })
       toast.success('Baseline applied')
     },
     onError: (err) => toast.error(errorDetail(err)),
@@ -129,7 +129,7 @@ export default function BaselinesPage() {
             Cyber Essentials A5 (Secure Configuration) evidence — apply a baseline checklist to a device and re-verify on a schedule.
           </p>
         </div>
-        {baselines.length > 0 && configurations.length > 0 && (
+        {baselines.length > 0 && systems.length > 0 && (
           <Button onClick={() => setApplyModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />Apply baseline
           </Button>
@@ -230,7 +230,7 @@ export default function BaselinesPage() {
                     {apps.map((a) => (
                       <tr key={a.id} className="border-t border-line">
                         <td className="px-4 py-2 font-medium">
-                          <Link to="/configurations" className="hover:text-ember">{a.configuration_name}</Link>
+                          <Link to={`/systems/${a.system_id}`} className="hover:text-ember">{a.system_name}</Link>
                         </td>
                         <td className="px-4 py-2 text-xs text-ink-dim">
                           {a.last_verified_date || <span className="text-ink-faint">never</span>}
@@ -250,7 +250,7 @@ export default function BaselinesPage() {
                             <CheckCircle2 className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => { if (confirm(`Remove "${bl.name}" from ${a.configuration_name}?`)) removeMut.mutate(a.id) }}
+                            onClick={() => { if (confirm(`Remove "${bl.name}" from ${a.system_name}?`)) removeMut.mutate(a.id) }}
                             className="p-1 text-ink-faint hover:text-bad"
                             title="Remove application"
                           >
@@ -284,13 +284,13 @@ export default function BaselinesPage() {
           <div>
             <label className="label-micro">Device</label>
             <select
-              value={applyForm.configuration_id}
-              onChange={(e) => setApplyForm({ ...applyForm, configuration_id: e.target.value })}
+              value={applyForm.system_id}
+              onChange={(e) => setApplyForm({ ...applyForm, system_id: e.target.value })}
               className="input-field"
               required
             >
               <option value="">Select a device…</option>
-              {(configurations as Configuration[]).filter((c) => c.ce_in_scope).map((c) => (
+              {(systems as System[]).filter((c) => c.ce_in_scope).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>

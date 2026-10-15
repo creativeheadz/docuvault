@@ -11,6 +11,7 @@ from app.schemas.system import (
     ChatMessageResponse,
     ChatTurnRequest,
     ChatTurnResponse,
+    FleetReadiness,
     SystemCreate,
     SystemResponse,
     SystemUpdate,
@@ -27,10 +28,25 @@ router = APIRouter(prefix="/systems", tags=["systems"])
 async def list_systems(
     search: str = Query("", max_length=255),
     include_archived: bool = Query(False),
+    organization_id: uuid.UUID | None = Query(None),
+    estate_only: bool = Query(False, description="Only systems that belong to no organisation"),
+    source: str | None = Query(None, max_length=30, description="Came from, or is synced by, this source"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return await system_service.list_systems(db, search=search, include_archived=include_archived)
+    items = await system_service.list_systems(
+        db, search=search, include_archived=include_archived,
+        organization_id=organization_id, estate_only=estate_only, source=source,
+    )
+    return [system_service.to_response(s) for s in items]
+
+
+@router.get("/fleet-readiness", response_model=FleetReadiness)
+async def fleet_readiness(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return await system_service.fleet_readiness(db)
 
 
 @router.post("", response_model=SystemResponse, status_code=status.HTTP_201_CREATED)
@@ -40,13 +56,17 @@ async def create_system(
     _: User = Depends(get_current_user),
 ):
     data = body.model_dump()
+    try:
+        await system_service.check_organization(db, data.get("organization_id"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     base_slug = data.get("slug") or system_service.slugify(data["name"])
     data["slug"] = await system_service.ensure_unique_slug(db, base_slug)
     item = System(**data)
     db.add(item)
     await db.flush()
-    await db.refresh(item)
-    return item
+    item = await system_service.get_system(db, item.id, fresh=True)
+    return system_service.to_response(item)
 
 
 @router.get("/{system_id}", response_model=SystemResponse)
@@ -58,7 +78,7 @@ async def get_system(
     item = await system_service.get_system(db, system_id)
     if not item:
         raise HTTPException(status_code=404, detail="System not found")
-    return item
+    return system_service.to_response(item)
 
 
 @router.put("/{system_id}", response_model=SystemResponse)
@@ -72,6 +92,13 @@ async def update_system(
     if not item:
         raise HTTPException(status_code=404, detail="System not found")
     patch = body.model_dump(exclude_unset=True)
+    if "organization_id" in patch:
+        try:
+            await system_service.check_organization(db, patch["organization_id"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    if patch.get("name") is None:
+        patch.pop("name", None)
     if "name" in patch and "slug" not in patch:
         patch["slug"] = await system_service.ensure_unique_slug(
             db, system_service.slugify(patch["name"]), exclude_id=item.id
@@ -80,11 +107,13 @@ async def update_system(
         patch["slug"] = await system_service.ensure_unique_slug(
             db, system_service.slugify(patch["slug"]), exclude_id=item.id
         )
+    else:
+        patch.pop("slug", None)
     for k, v in patch.items():
         setattr(item, k, v)
     await db.flush()
-    await db.refresh(item)
-    return item
+    item = await system_service.get_system(db, item.id, fresh=True)
+    return system_service.to_response(item)
 
 
 @router.delete("/{system_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -162,11 +191,11 @@ async def post_chat_turn(
     user_msg = next((p for p in persisted if p.role == "user"), persisted[0])
     assistant_msg = next((p for p in reversed(persisted) if p.role == "assistant"), persisted[-1])
 
-    await db.refresh(system)
+    system = await system_service.get_system(db, system_id, fresh=True)
     return ChatTurnResponse(
         assistant_text=assistant_text or "(no reply)",
         tool_events=[ToolEvent(**t) for t in tool_events],
-        system=SystemResponse.model_validate(system),
+        system=system_service.to_response(system),
         user_message=ChatMessageResponse.model_validate(user_msg),
         assistant_message=ChatMessageResponse.model_validate(assistant_msg),
     )

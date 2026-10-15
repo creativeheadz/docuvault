@@ -11,14 +11,15 @@ from app.models.base import Base, TimestampMixin
 class UserAccess(TimestampMixin, Base):
     """Records that a contact has access to a system (CE A7 evidence).
 
-    The system can be a tracked cloud service, a configuration (device/server),
+    The system can be a tracked cloud service, a documented system (device, server,
+    platform),
     or a free-text custom system that isn't modelled yet. Exactly one of the
     three system fields should be populated.
     """
     __tablename__ = "user_accesses"
     __table_args__ = (
         CheckConstraint(
-            "(cloud_service_id IS NOT NULL)::int + (configuration_id IS NOT NULL)::int + (custom_system_label IS NOT NULL)::int = 1",
+            "(cloud_service_id IS NOT NULL)::int + (system_id IS NOT NULL)::int + (custom_system_label IS NOT NULL)::int = 1",
             name="ck_user_accesses_single_target",
         ),
     )
@@ -30,8 +31,8 @@ class UserAccess(TimestampMixin, Base):
     cloud_service_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cloud_services.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    configuration_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("configurations.id", ondelete="CASCADE"), nullable=True, index=True
+    system_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("systems.id", ondelete="CASCADE"), nullable=True, index=True
     )
     custom_system_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
@@ -53,4 +54,4 @@ class UserAccess(TimestampMixin, Base):
 
     contact = relationship("Contact", lazy="selectin")
     cloud_service = relationship("CloudService", lazy="selectin")
-    configuration = relationship("Configuration", lazy="selectin")
+    system = relationship("System", lazy="selectin")

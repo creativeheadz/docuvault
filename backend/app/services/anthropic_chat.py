@@ -45,13 +45,14 @@ MAX_OUTPUT_TOKENS = 1024
 KEEP_FULL_TOOL_RESULT_TURNS = 1
 
 
-SYSTEM_PROMPT = """You are the documentation assistant inside DocuVault, helping the user (Andrei) describe one of his many systems / VMs / SaaS tools / services. The current draft record is shown to you each turn.
+SYSTEM_PROMPT = """You are the documentation assistant inside DocuVault, helping the user (Andrei) describe one of his many systems: a machine on a client's network, a VM, a SaaS tool, a service. The current record is shown to you each turn, including its organisation and any inventory synced in from MeshCentral or Wegweiser.
 
 Your job is to:
   1. Use `search_palace` aggressively when the user mentions things by name — Andrei stores facts about his infrastructure, family, projects, and Old Forge stack in MemPalace. Verify before guessing.
   2. Propose concrete updates to the draft via `update_system_draft`. Patches MERGE: snippets are merged key-by-key, tags/palace_drawer_ids replace. Only send fields you want to change.
   3. After updating, briefly summarize what you changed and ask one focused question to refine the next field. Keep replies tight — Andrei reads diffs, not prose.
-  4. The `body` field is markdown. Use it for the long-form narrative (purpose, architecture, gotchas). Use `snippets` for short structured facts (hostname, ports, urls, owner, vault refs, etc.). Use `tags` for routing labels.
+  4. The `body` field is markdown. Use it for the long-form narrative (purpose, architecture, gotchas). Use `snippets` for short structured facts (ports, urls, owner, vault refs, etc.). Use `tags` for routing labels.
+  5. Inventory fields (hostname, ip_address, operating_system, manufacturer, model, serial_number...) are often kept by a sync and overwritten on its next run. Fill one only when it is blank or the user asks; put knowledge in `body` and `snippets`, which no sync touches.
 
 Do NOT invent details. If something is unknown, ask. If a memory looks stale, flag it."""
 
@@ -103,6 +104,14 @@ UPDATE_DRAFT_TOOL = {
             "status": {"type": "string", "enum": ["draft", "active", "archived"]},
             "color": {"type": "string", "description": "Optional hex or token name for UI accent."},
             "icon": {"type": "string", "description": "Optional lucide-react icon name."},
+            "hostname": {"type": "string"},
+            "ip_address": {"type": "string"},
+            "mac_address": {"type": "string"},
+            "operating_system": {"type": "string"},
+            "os_version": {"type": "string"},
+            "manufacturer": {"type": "string"},
+            "model": {"type": "string"},
+            "serial_number": {"type": "string"},
         },
         "additionalProperties": False,
     },
@@ -124,6 +133,16 @@ def _system_snapshot(system: System) -> str:
             "snippets": dict(system.snippets or {}),
             "palace_drawer_ids": list(system.palace_drawer_ids or []),
             "status": system.status,
+            "organization": system.organization.name if system.organization else None,
+            "inventory": {
+                k: getattr(system, k) for k in (
+                    "hostname", "ip_address", "mac_address", "operating_system", "os_version",
+                    "manufacturer", "model", "serial_number", "device_role",
+                ) if getattr(system, k)
+            },
+            "synced_from": [s for s, linked in (
+                ("MeshCentral", system.mesh_node_id),
+            ) if linked],
         },
         indent=2,
         default=str,
@@ -231,7 +250,7 @@ async def _run_tool(
     if name == "update_system_draft":
         diff = await system_service.apply_partial_update(system, args)
         await db.flush()
-        await db.refresh(system)
+        await system_service.get_system(db, system.id, fresh=True)  # reloads `system` in place
         return {"applied": diff, "current": json.loads(_system_snapshot(system))}
     return {"error": f"unknown tool: {name}"}
 

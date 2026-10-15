@@ -28,11 +28,11 @@ async def list_network_maps(
 
 @router.get("/placements", response_model=list[Placement])
 async def list_placements(
-    configuration_id: uuid.UUID | None = Query(None),
+    system_id: uuid.UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return await svc.placements(db, configuration_id)
+    return await svc.placements(db, system_id)
 
 
 @router.post("", response_model=NetworkMapDetail, status_code=status.HTTP_201_CREATED)

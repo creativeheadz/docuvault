@@ -1,7 +1,7 @@
 """Network maps: a hand-drawn topology laid over an organisation's records.
 
 A map is a graph of nodes (devices, each optionally backed by a
-``Configuration``), links between them, and zones (labelled areas drawn
+``System``), links between them, and zones (labelled areas drawn
 behind the devices). The editor owns the drawing and saves the whole graph
 at once; this module checks it holds together and writes the difference.
 
@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.configuration import Configuration
+from app.models.system import System
 from app.models.firewall_rule import FirewallRule
 from app.models.location import Location
 from app.models.network_map import (
@@ -57,7 +57,7 @@ def validate_graph(
     nodes: Iterable[MapNode],
     links: Iterable[MapLink],
     zones: Iterable[MapZone],
-    allowed_configuration_ids: set[uuid.UUID],
+    allowed_system_ids: set[uuid.UUID],
 ) -> None:
     nodes, links, zones = list(nodes), list(links), list(zones)
 
@@ -69,12 +69,12 @@ def validate_graph(
         node_ids.add(n.id)
         if n.kind not in NODE_KINDS:
             raise GraphError(f"Unknown device kind '{n.kind}'")
-        if n.configuration_id is not None:
-            if n.configuration_id not in allowed_configuration_ids:
+        if n.system_id is not None:
+            if n.system_id not in allowed_system_ids:
                 raise GraphError("A device points at a record that is not in this organisation")
-            if n.configuration_id in placed:
+            if n.system_id in placed:
                 raise GraphError("A record can only be placed once on a map")
-            placed.add(n.configuration_id)
+            placed.add(n.system_id)
 
     link_ids: set[uuid.UUID] = set()
     gateway: dict[uuid.UUID, uuid.UUID] = {}
@@ -151,7 +151,7 @@ def summarize(m: NetworkMap) -> NetworkMapSummary:
         description=m.description,
         node_count=len(m.nodes),
         link_count=len(m.links),
-        record_count=sum(1 for n in m.nodes if n.configuration_id is not None),
+        record_count=sum(1 for n in m.nodes if n.system_id is not None),
         created_at=m.created_at,
         updated_at=m.updated_at,
         preview=MapPreview(
@@ -169,31 +169,31 @@ def summarize(m: NetworkMap) -> NetworkMapSummary:
 async def records_for(db: AsyncSession, m: NetworkMap) -> list[MapRecord]:
     """Every live record of the map's organisation, plus any archived one a
     node still points at, so that node keeps its name and details."""
-    placed = [n.configuration_id for n in m.nodes if n.configuration_id is not None]
-    q = select(Configuration).where(Configuration.organization_id == m.organization_id)
+    placed = [n.system_id for n in m.nodes if n.system_id is not None]
+    q = select(System).where(System.organization_id == m.organization_id)
     if placed:
-        q = q.where(or_(Configuration.archived_at.is_(None), Configuration.id.in_(placed)))
+        q = q.where(or_(System.archived_at.is_(None), System.id.in_(placed)))
     else:
-        q = q.where(Configuration.archived_at.is_(None))
-    configs = list((await db.execute(q.order_by(Configuration.name))).scalars().all())
+        q = q.where(System.archived_at.is_(None))
+    systems = list((await db.execute(q.order_by(System.name))).scalars().all())
 
     rules: dict[uuid.UUID, list[RecordFirewallRule]] = {}
-    if configs:
+    if systems:
         rows = await db.execute(
             select(
-                FirewallRule.id, FirewallRule.configuration_id, FirewallRule.name,
+                FirewallRule.id, FirewallRule.system_id, FirewallRule.name,
                 FirewallRule.direction, FirewallRule.protocol, FirewallRule.external_port,
                 FirewallRule.internal_port, FirewallRule.status,
             )
             .where(
-                FirewallRule.configuration_id.in_([c.id for c in configs]),
+                FirewallRule.system_id.in_([c.id for c in systems]),
                 FirewallRule.archived_at.is_(None),
                 FirewallRule.status != "removed",
             )
             .order_by(FirewallRule.name)
         )
         for r in rows:
-            rules.setdefault(r.configuration_id, []).append(RecordFirewallRule(
+            rules.setdefault(r.system_id, []).append(RecordFirewallRule(
                 id=r.id, name=r.name, direction=r.direction, protocol=r.protocol,
                 external_port=r.external_port, internal_port=r.internal_port, status=r.status,
             ))
@@ -202,7 +202,7 @@ async def records_for(db: AsyncSession, m: NetworkMap) -> list[MapRecord]:
         MapRecord(
             id=c.id,
             name=c.name,
-            configuration_type=c.configuration_type,
+            category=c.category,
             hostname=c.hostname,
             ip_address=c.ip_address,
             mac_address=c.mac_address,
@@ -215,6 +215,10 @@ async def records_for(db: AsyncSession, m: NetworkMap) -> list[MapRecord]:
             mesh_node_id=c.mesh_node_id,
             mesh_agent_connected=c.mesh_agent_connected,
             mesh_last_sync_at=c.mesh_last_sync_at,
+            wegweiser_device_id=c.wegweiser_device_id,
+            wegweiser_online=c.wegweiser_online,
+            wegweiser_last_seen_at=c.wegweiser_last_seen_at,
+            wegweiser_extra=c.wegweiser_extra,
             ce_in_scope=c.ce_in_scope,
             software_firewall_on=c.software_firewall_on,
             malware_protection=c.malware_protection,
@@ -223,7 +227,7 @@ async def records_for(db: AsyncSession, m: NetworkMap) -> list[MapRecord]:
             archived=c.archived_at is not None,
             firewall_rules=rules.get(c.id, []),
         )
-        for c in configs
+        for c in systems
     ]
 
 
@@ -239,18 +243,18 @@ async def detail(db: AsyncSession, m: NetworkMap) -> NetworkMapDetail:
     )
 
 
-async def placements(db: AsyncSession, configuration_id: uuid.UUID | None = None) -> list[Placement]:
+async def placements(db: AsyncSession, system_id: uuid.UUID | None = None) -> list[Placement]:
     """Where each record sits on a map, for linking back from the records."""
     q = (
-        select(NetworkMapNode.configuration_id, NetworkMap.id, NetworkMap.name, NetworkMapNode.id)
+        select(NetworkMapNode.system_id, NetworkMap.id, NetworkMap.name, NetworkMapNode.id)
         .join(NetworkMap, NetworkMap.id == NetworkMapNode.map_id)
-        .where(NetworkMapNode.configuration_id.isnot(None))
+        .where(NetworkMapNode.system_id.isnot(None))
         .order_by(NetworkMap.name)
     )
-    if configuration_id is not None:
-        q = q.where(NetworkMapNode.configuration_id == configuration_id)
+    if system_id is not None:
+        q = q.where(NetworkMapNode.system_id == system_id)
     return [
-        Placement(configuration_id=cid, map_id=mid, map_name=mname, node_id=nid)
+        Placement(system_id=cid, map_id=mid, map_name=mname, node_id=nid)
         for cid, mid, mname, nid in (await db.execute(q)).all()
     ]
 
@@ -311,7 +315,7 @@ async def save_graph(db: AsyncSession, map_id: uuid.UUID, body: GraphSave) -> Ne
 
     allowed = set(
         (await db.execute(
-            select(Configuration.id).where(Configuration.organization_id == m.organization_id)
+            select(System.id).where(System.organization_id == m.organization_id)
         )).scalars().all()
     )
     validate_graph(body.nodes, body.links, body.zones, allowed)

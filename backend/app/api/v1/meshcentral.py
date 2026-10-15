@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.configuration import Configuration
+from app.models.system import System
 from app.models.user import User
 from app.services.meshcentral_service import (
     MeshCentralClient,
@@ -114,11 +114,11 @@ async def get_remote_urls(
     _: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Configuration).where(Configuration.id == config_id)
+        select(System).where(System.id == config_id)
     )
     config = result.scalar_one_or_none()
     if not config:
-        raise HTTPException(status_code=404, detail="Configuration not found")
+        raise HTTPException(status_code=404, detail="System not found")
     if not config.mesh_node_id:
         raise HTTPException(status_code=400, detail="Not a MeshCentral device")
 

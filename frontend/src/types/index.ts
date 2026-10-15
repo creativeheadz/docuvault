@@ -86,35 +86,6 @@ export interface Contact {
   updated_at: string
 }
 
-export interface Configuration {
-  id: string
-  organization_id: string
-  name: string
-  configuration_type: string | null
-  hostname: string | null
-  ip_address: string | null
-  mac_address: string | null
-  serial_number: string | null
-  operating_system: string | null
-  os_version: string | null
-  manufacturer: string | null
-  model: string | null
-  warranty_expiration: string | null
-  notes: string | null
-  mesh_node_id: string | null
-  mesh_agent_connected: boolean | null
-  mesh_last_sync_at: string | null
-  mesh_extra: Record<string, unknown> | null
-  ce_in_scope: boolean
-  device_role: DeviceRole | null
-  software_firewall_on: boolean | null
-  malware_protection: MalwareProtection | null
-  os_eol_date: string | null
-  last_patched_date: string | null
-  created_at: string
-  updated_at: string
-}
-
 export type DeviceRole = 'employee' | 'admin' | 'byod' | 'server' | 'network'
 export type MalwareProtection = 'defender' | 'allowlist' | 'thirdparty' | 'none'
 
@@ -130,8 +101,8 @@ export interface FleetReadiness {
 
 export interface BaselineApplication {
   id: string
-  configuration_id: string
-  configuration_name: string
+  system_id: string
+  system_name: string
   checklist_id: string
   checklist_name: string
   last_verified_date: string | null
@@ -151,7 +122,7 @@ export interface BaselineStats {
 
 export type AccessPrivilege = 'standard' | 'admin' | 'owner'
 export type PersonCategory = 'employee' | 'contractor' | 'msp' | 'vendor' | 'customer'
-export type AccessSystemType = 'cloud_service' | 'configuration' | 'custom'
+export type AccessSystemType = 'cloud_service' | 'system' | 'custom'
 
 export interface UserAccess {
   id: string
@@ -159,7 +130,7 @@ export interface UserAccess {
   contact_name: string
   contact_email: string | null
   cloud_service_id: string | null
-  configuration_id: string | null
+  system_id: string | null
   custom_system_label: string | null
   system_type: AccessSystemType
   system_label: string
@@ -277,48 +248,6 @@ export interface DnsLookupResult {
   hostname: string
   a: string[]
   aaaa: string[]
-}
-
-export interface FlexibleAssetType {
-  id: string
-  name: string
-  description: string | null
-  icon: string | null
-  color: string | null
-  is_enabled: boolean
-  sections: FlexibleAssetSection[]
-  created_at: string
-  updated_at: string
-}
-
-export interface FlexibleAssetSection {
-  id: string
-  asset_type_id: string
-  name: string
-  sort_order: number
-  fields: FlexibleAssetField[]
-}
-
-export interface FlexibleAssetField {
-  id: string
-  asset_type_id: string
-  section_id: string | null
-  name: string
-  field_type: string
-  hint: string | null
-  required: boolean
-  options: Record<string, unknown> | null
-  sort_order: number
-}
-
-export interface FlexibleAsset {
-  id: string
-  asset_type_id: string
-  organization_id: string
-  name: string
-  field_values: Record<string, unknown>
-  created_at: string
-  updated_at: string
 }
 
 export interface Document {
@@ -567,22 +496,71 @@ export interface UptimeMonitorsResponse {
   error: string | null
 }
 
+/**
+ * One record per thing worth documenting: a machine on a client's network,
+ * a VM, a platform or a vendor. Inventory comes from MeshCentral, Wegweiser
+ * or a person; the documentation from a person or the chat assistant.
+ * No organisation means estate-wide.
+ */
 export interface System {
   id: string
   name: string
   slug: string
+  organization_id: string | null
+  organization_name: string | null
   category: string | null
+  status: 'draft' | 'active' | 'archived' | string
+  /** Where the record came from: manual, meshcentral, wegweiser, map, csv, or another importer. */
+  source: SystemSource
   short_description: string | null
   body: string | null
   tags: string[]
   snippets: Record<string, unknown>
   palace_drawer_ids: string[]
-  status: 'draft' | 'active' | 'archived' | string
   color: string | null
   icon: string | null
+  // Inventory
+  hostname: string | null
+  ip_address: string | null
+  mac_address: string | null
+  serial_number: string | null
+  operating_system: string | null
+  os_version: string | null
+  manufacturer: string | null
+  model: string | null
+  warranty_expiration: string | null
+  // MeshCentral
+  mesh_node_id: string | null
+  mesh_agent_connected: boolean | null
+  mesh_last_sync_at: string | null
+  mesh_extra: Record<string, unknown> | null
+  // Wegweiser
+  wegweiser_device_id: string | null
+  wegweiser_online: boolean | null
+  wegweiser_last_seen_at: string | null
+  wegweiser_synced_at: string | null
+  wegweiser_extra: WegweiserExtra | null
+  // Cyber Essentials evidence
+  ce_in_scope: boolean
+  device_role: DeviceRole | null
+  software_firewall_on: boolean | null
+  malware_protection: MalwareProtection | null
+  os_eol_date: string | null
+  last_patched_date: string | null
   created_at: string
   updated_at: string
   archived_at: string | null
+}
+
+export type SystemSource = 'manual' | 'meshcentral' | 'wegweiser' | 'map' | 'csv' | (string & {})
+
+export interface WegweiserExtra {
+  health_score?: number
+  agent_version?: string
+  group?: string
+  url?: string
+  mac_addresses?: string[]
+  system_uuid?: string
 }
 
 export interface SystemChatUsage {
@@ -636,7 +614,7 @@ export type FirewallRuleProtocol = 'TCP' | 'UDP' | 'TCP+UDP' | 'ICMP' | 'Any'
 export interface FirewallRule {
   id: string
   organization_id: string | null
-  configuration_id: string | null
+  system_id: string | null
   name: string
   direction: FirewallRuleDirection
   external_port: string
@@ -656,7 +634,7 @@ export interface FirewallRule {
   created_at: string
   updated_at: string
   organization_name: string | null
-  configuration_name: string | null
+  system_name: string | null
   days_until_review: number | null
 }
 
@@ -754,7 +732,7 @@ export type ZoneTone = 'neutral' | 'ember' | 'blue' | 'green' | 'warn' | 'red'
 
 export interface MapNode {
   id: string
-  configuration_id: string | null
+  system_id: string | null
   kind: NodeKind
   label: string | null
   address: string | null
@@ -805,11 +783,11 @@ export interface MapRecordFirewallRule {
   status: string
 }
 
-/** A configuration record, as much of it as a map draws on. */
+/** A system, as much of it as a map draws on. */
 export interface MapRecord {
   id: string
   name: string
-  configuration_type: string | null
+  category: string | null
   hostname: string | null
   ip_address: string | null
   mac_address: string | null
@@ -822,6 +800,10 @@ export interface MapRecord {
   mesh_node_id: string | null
   mesh_agent_connected: boolean | null
   mesh_last_sync_at: string | null
+  wegweiser_device_id: string | null
+  wegweiser_online: boolean | null
+  wegweiser_last_seen_at: string | null
+  wegweiser_extra: WegweiserExtra | null
   ce_in_scope: boolean
   software_firewall_on: boolean | null
   malware_protection: MalwareProtection | null
@@ -869,7 +851,7 @@ export interface MapGraphSave {
 }
 
 export interface MapPlacement {
-  configuration_id: string
+  system_id: string
   map_id: string
   map_name: string
   node_id: string

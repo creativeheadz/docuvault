@@ -23,7 +23,7 @@ OURS = {RECORD_A, RECORD_B}
 
 
 def node(kind='switch', record=None):
-    return MapNode(id=uuid.uuid4(), kind=kind, configuration_id=record, x=0, y=0)
+    return MapNode(id=uuid.uuid4(), kind=kind, system_id=record, x=0, y=0)
 
 
 def link(a, b, role='peer', kind='ethernet'):

@@ -2,7 +2,6 @@ from app.models.user import User
 from app.models.organization import Organization
 from app.models.location import Location
 from app.models.contact import Contact
-from app.models.configuration import Configuration
 from app.models.password_category import PasswordCategory
 from app.models.password import Password
 from app.models.password_audit import PasswordAccessLog
@@ -32,14 +31,14 @@ from app.models.system import System, SystemChatMessage
 from app.models.task import Task
 from app.models.firewall_rule import FirewallRule
 from app.models.cloud_service import CloudService
-from app.models.configuration_baseline import ConfigurationBaseline
+from app.models.system_baseline import SystemBaseline
 from app.models.user_access import UserAccess
 from app.models.api_token import ApiToken
 from app.models.network_map import NetworkMap, NetworkMapNode, NetworkMapLink, NetworkMapZone
 from app.models.refresh_token import RefreshToken  # noqa: F401
 
 __all__ = [
-    "User", "Organization", "Location", "Contact", "Configuration",
+    "User", "Organization", "Location", "Contact",
     "PasswordCategory", "Password", "PasswordAccessLog", "Domain", "SSLCertificate",
     "FlexibleAssetType", "FlexibleAssetSection", "FlexibleAssetField", "FlexibleAsset",
     "DocumentFolder", "Document", "DocumentVersion", "DocumentTemplate", "Attachment",
@@ -51,7 +50,7 @@ __all__ = [
     "Task",
     "FirewallRule",
     "CloudService",
-    "ConfigurationBaseline",
+    "SystemBaseline",
     "UserAccess",
     "ApiToken",
     "NetworkMap", "NetworkMapNode", "NetworkMapLink", "NetworkMapZone",

@@ -16,6 +16,8 @@ import {
   getSystem, getSystemChat, sendSystemChatMessage, updateSystem, deleteSystem,
 } from '@/api/systems'
 import type { System, SystemChatMessage, SystemToolEvent } from '@/types'
+import { SystemFacts } from '@/components/systems/SystemFacts'
+import { SourceBadges } from '@/components/systems/badges'
 
 
 // Per-million-token USD pricing. Keep in sync with public Anthropic pricing.
@@ -355,6 +357,7 @@ function RecordPanel({
               <option value="active">active</option>
               <option value="archived">archived</option>
             </select>
+            <span className="ml-1"><SourceBadges system={system} /></span>
           </div>
         </div>
         <Button onClick={save} loading={isSaving} disabled={!dirty} size="sm">
@@ -364,13 +367,17 @@ function RecordPanel({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <SystemFacts system={merged} setField={setField} />
+
+        <div className="kicker pt-2 border-t border-[var(--line)]" style={{ color: 'var(--ink-faint)' }}>§ Documentation</div>
+
         {/* Category */}
         <div>
-          <FieldKicker icon={Tag} label="Category" />
+          <FieldKicker icon={Tag} label="Type" />
           <input
             value={merged.category || ''}
             onChange={(e) => setField('category', e.target.value || null)}
-            placeholder="server / vm / saas / monitoring / secrets / identity"
+            placeholder="Workstation, Firewall, Server, VM, Platform, Vendor…"
             className="input-field"
           />
         </div>
@@ -606,6 +613,10 @@ export default function SystemDetailPage() {
       queryClient.setQueryData(['systems', id], sys)
       queryClient.invalidateQueries({ queryKey: ['systems'] })
       toast.success('Saved')
+    },
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      toast.error(typeof detail === 'string' ? detail : 'Not saved')
     },
   })
 

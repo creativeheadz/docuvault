@@ -40,7 +40,7 @@ def _add_months(d: date, months: int) -> date:
 class FirewallRuleCreate(BaseModel):
     name: str = Field(..., max_length=200)
     organization_id: uuid.UUID | None = None
-    configuration_id: uuid.UUID | None = None
+    system_id: uuid.UUID | None = None
     direction: str = "inbound"
     external_port: str = Field(..., max_length=50)
     internal_host: str = Field(..., max_length=255)
@@ -60,7 +60,7 @@ class FirewallRuleCreate(BaseModel):
 class FirewallRuleUpdate(BaseModel):
     name: str | None = None
     organization_id: uuid.UUID | None = None
-    configuration_id: uuid.UUID | None = None
+    system_id: uuid.UUID | None = None
     direction: str | None = None
     external_port: str | None = None
     internal_host: str | None = None
@@ -80,7 +80,7 @@ class FirewallRuleUpdate(BaseModel):
 class FirewallRuleResponse(BaseModel):
     id: uuid.UUID
     organization_id: uuid.UUID | None
-    configuration_id: uuid.UUID | None
+    system_id: uuid.UUID | None
     name: str
     direction: str
     external_port: str
@@ -100,7 +100,7 @@ class FirewallRuleResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     organization_name: str | None = None
-    configuration_name: str | None = None
+    system_name: str | None = None
     days_until_review: int | None = None
 
     model_config = {"from_attributes": True}
@@ -114,7 +114,7 @@ def _validate_enum(value: str, allowed: set[str], field: str) -> None:
 def _to_response(rule: FirewallRule) -> FirewallRuleResponse:
     resp = FirewallRuleResponse.model_validate(rule)
     resp.organization_name = rule.organization.name if rule.organization else None
-    resp.configuration_name = rule.configuration.name if rule.configuration else None
+    resp.system_name = rule.system.name if rule.system else None
     if rule.status == "active":
         resp.days_until_review = (rule.next_review_date - date.today()).days
     else:
@@ -191,7 +191,7 @@ async def export_firewall_rules_csv(
         "Name", "Direction", "Protocol", "External port", "Internal host", "Internal port",
         "Business need", "Approved by", "Approved date", "Review every (months)",
         "Next review date", "Last reviewed", "Status", "Removed date",
-        "Organization", "Configuration", "Notes",
+        "Organization", "System", "Notes",
     ])
     for r in items:
         writer.writerow([
@@ -202,7 +202,7 @@ async def export_firewall_rules_csv(
             r.status,
             r.removed_date.isoformat() if r.removed_date else "",
             r.organization.name if r.organization else "",
-            r.configuration.name if r.configuration else "",
+            r.system.name if r.system else "",
             r.notes or "",
         ])
     buf.seek(0)

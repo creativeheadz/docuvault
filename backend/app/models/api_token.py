@@ -15,7 +15,8 @@ from app.models.base import Base, TimestampMixin
 # Each scope is checked by exactly one router, which asks for it by name.
 SCOPE_READ_CONTEXT = "read:context"   # the integration router: read documentation
 SCOPE_WRITE_TASKS = "write:tasks"     # the tasks router: read and change tasks
-VALID_SCOPES = (SCOPE_READ_CONTEXT, SCOPE_WRITE_TASKS)
+SCOPE_WRITE_SYSTEMS = "write:systems" # the inventory router: push machines in as systems
+VALID_SCOPES = (SCOPE_READ_CONTEXT, SCOPE_WRITE_TASKS, SCOPE_WRITE_SYSTEMS)
 
 TOKEN_PREFIX = "dvt_"
 
@@ -58,6 +59,12 @@ class ApiToken(TimestampMixin, Base):
     ApiToken is accepted, it asks for `write:tasks` by name, and a key
     narrowed to one organisation cannot see, create or move a task belonging
     to any other - nor a task that belongs to none.
+
+    `write:systems` came third (2026-10-15), for Wegweiser pushing the
+    machines its agents see into DocuVault as systems, so a client's network
+    map starts with what is actually on the network. It is accepted only by
+    the inventory router, which can create and update systems and nothing
+    else; a key narrowed to organisations writes only into those.
     """
 
     __tablename__ = "api_tokens"

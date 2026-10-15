@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.checklist import Checklist
-from app.models.configuration import Configuration
-from app.models.configuration_baseline import ConfigurationBaseline
+from app.models.system import System
+from app.models.system_baseline import SystemBaseline
 from app.models.user import User
 
 router = APIRouter(prefix="/baselines", tags=["baselines"])
@@ -43,8 +43,8 @@ class BaselineVerifyBody(BaseModel):
 
 class BaselineApplicationResponse(BaseModel):
     id: uuid.UUID
-    configuration_id: uuid.UUID
-    configuration_name: str
+    system_id: uuid.UUID
+    system_name: str
     checklist_id: uuid.UUID
     checklist_name: str
     last_verified_date: date | None
@@ -58,12 +58,12 @@ class BaselineApplicationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-def _to_response(item: ConfigurationBaseline) -> BaselineApplicationResponse:
+def _to_response(item: SystemBaseline) -> BaselineApplicationResponse:
     days = (item.next_review_date - date.today()).days if item.next_review_date else None
     return BaselineApplicationResponse(
         id=item.id,
-        configuration_id=item.configuration_id,
-        configuration_name=item.configuration.name if item.configuration else "",
+        system_id=item.system_id,
+        system_name=item.system.name if item.system else "",
         checklist_id=item.checklist_id,
         checklist_name=item.checklist.name if item.checklist else "",
         last_verified_date=item.last_verified_date,
@@ -84,7 +84,7 @@ async def list_all_applications(
     _: User = Depends(get_current_user),
 ):
     """All baseline applications across the fleet."""
-    query = select(ConfigurationBaseline).order_by(ConfigurationBaseline.next_review_date.asc())
+    query = select(SystemBaseline).order_by(SystemBaseline.next_review_date.asc())
     items = (await db.execute(query)).scalars().all()
     return [_to_response(i) for i in items]
 
@@ -95,9 +95,9 @@ async def baseline_stats(
     _: User = Depends(get_current_user),
 ):
     today = date.today()
-    base = select(func.count(ConfigurationBaseline.id))
+    base = select(func.count(SystemBaseline.id))
     total = (await db.execute(base)).scalar_one()
-    overdue = (await db.execute(base.where(ConfigurationBaseline.next_review_date <= today))).scalar_one()
+    overdue = (await db.execute(base.where(SystemBaseline.next_review_date <= today))).scalar_one()
     baselines_count = (await db.execute(
         select(func.count(Checklist.id)).where(
             Checklist.is_baseline.is_(True), Checklist.archived_at.is_(None)
@@ -106,33 +106,33 @@ async def baseline_stats(
     return {"total_applications": total, "overdue": overdue, "baselines": baselines_count}
 
 
-@router.get("/by-configuration/{configuration_id}", response_model=list[BaselineApplicationResponse])
-async def list_baselines_for_configuration(
-    configuration_id: uuid.UUID,
+@router.get("/by-system/{system_id}", response_model=list[BaselineApplicationResponse])
+async def list_baselines_for_system(
+    system_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     query = (
-        select(ConfigurationBaseline)
-        .where(ConfigurationBaseline.configuration_id == configuration_id)
-        .order_by(ConfigurationBaseline.next_review_date.asc())
+        select(SystemBaseline)
+        .where(SystemBaseline.system_id == system_id)
+        .order_by(SystemBaseline.next_review_date.asc())
     )
     items = (await db.execute(query)).scalars().all()
     return [_to_response(i) for i in items]
 
 
-@router.post("/by-configuration/{configuration_id}", response_model=BaselineApplicationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/by-system/{system_id}", response_model=BaselineApplicationResponse, status_code=status.HTTP_201_CREATED)
 async def apply_baseline(
-    configuration_id: uuid.UUID,
+    system_id: uuid.UUID,
     body: BaselineApplyBody,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     if body.review_period_months <= 0:
         raise HTTPException(status_code=400, detail="review_period_months must be > 0")
-    config = (await db.execute(select(Configuration).where(Configuration.id == configuration_id))).scalar_one_or_none()
+    config = (await db.execute(select(System).where(System.id == system_id))).scalar_one_or_none()
     if not config:
-        raise HTTPException(status_code=404, detail="Configuration not found")
+        raise HTTPException(status_code=404, detail="System not found")
     checklist = (await db.execute(select(Checklist).where(Checklist.id == body.checklist_id))).scalar_one_or_none()
     if not checklist:
         raise HTTPException(status_code=404, detail="Checklist not found")
@@ -141,17 +141,17 @@ async def apply_baseline(
 
     # Unique constraint will reject duplicates with IntegrityError; pre-check for a friendlier error
     existing = (await db.execute(
-        select(ConfigurationBaseline).where(
-            ConfigurationBaseline.configuration_id == configuration_id,
-            ConfigurationBaseline.checklist_id == body.checklist_id,
+        select(SystemBaseline).where(
+            SystemBaseline.system_id == system_id,
+            SystemBaseline.checklist_id == body.checklist_id,
         )
     )).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=400, detail="Baseline already applied to this configuration")
+        raise HTTPException(status_code=400, detail="Baseline already applied to this system")
 
     anchor = body.last_verified_date or date.today()
-    item = ConfigurationBaseline(
-        configuration_id=configuration_id,
+    item = SystemBaseline(
+        system_id=system_id,
         checklist_id=body.checklist_id,
         last_verified_date=body.last_verified_date,
         review_period_months=body.review_period_months,
@@ -170,7 +170,7 @@ async def verify_application(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    item = (await db.execute(select(ConfigurationBaseline).where(ConfigurationBaseline.id == application_id))).scalar_one_or_none()
+    item = (await db.execute(select(SystemBaseline).where(SystemBaseline.id == application_id))).scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Baseline application not found")
     verified_on = body.verified_on or date.today()
@@ -189,7 +189,7 @@ async def remove_application(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    exists = (await db.execute(select(ConfigurationBaseline.id).where(ConfigurationBaseline.id == application_id))).scalar_one_or_none()
+    exists = (await db.execute(select(SystemBaseline.id).where(SystemBaseline.id == application_id))).scalar_one_or_none()
     if not exists:
         raise HTTPException(status_code=404, detail="Baseline application not found")
-    await db.execute(text("DELETE FROM configuration_baselines WHERE id = :aid"), {"aid": application_id})
+    await db.execute(text("DELETE FROM system_baselines WHERE id = :aid"), {"aid": application_id})

@@ -3,13 +3,14 @@ import type { MapRecord, UptimeMonitor } from '@/types'
 /**
  * What the map knows about a device right now. Uptime Kuma speaks for a
  * device when one of its monitors points at it; failing that the
- * MeshCentral agent does; failing both the map says nothing.
+ * MeshCentral agent does, then the Wegweiser agent; failing all three the
+ * map says nothing.
  */
 export type LiveState = 'up' | 'down' | 'pending' | 'maintenance' | 'online' | 'offline' | 'unknown'
 
 export interface Live {
   state: LiveState
-  source: 'kuma' | 'mesh' | null
+  source: 'kuma' | 'mesh' | 'wegweiser' | null
   monitors: UptimeMonitor[]
   summary: string
 }
@@ -95,6 +96,10 @@ export function liveFor(
   if (record?.mesh_node_id && record.mesh_agent_connected !== null) {
     const state: LiveState = record.mesh_agent_connected ? 'online' : 'offline'
     return { state, source: 'mesh', monitors: [], summary: LIVE_LABEL[state] }
+  }
+  if (record?.wegweiser_device_id && record.wegweiser_online !== null) {
+    const state: LiveState = record.wegweiser_online ? 'online' : 'offline'
+    return { state, source: 'wegweiser', monitors: [], summary: LIVE_LABEL[state] }
   }
   return UNKNOWN
 }

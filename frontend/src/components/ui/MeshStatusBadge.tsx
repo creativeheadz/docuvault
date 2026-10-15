@@ -1,8 +1,8 @@
 import { Wifi, WifiOff } from 'lucide-react'
-import type { Configuration } from '@/types'
+import type { System } from '@/types'
 
 interface MeshStatusBadgeProps {
-  config: Configuration
+  config: System
 }
 
 export function MeshStatusBadge({ config }: MeshStatusBadgeProps) {

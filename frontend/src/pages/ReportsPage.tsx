@@ -6,13 +6,13 @@ import { Spinner } from '@/components/ui/Spinner'
 import { BarChart3, Building2, Server, KeyRound, FileText, Globe, ShieldCheck, Users, MapPin, CheckSquare, BookOpen } from 'lucide-react'
 
 const entityIcons: Record<string, typeof Building2> = {
-  organizations: Building2, configurations: Server, passwords: KeyRound, documents: FileText,
+  organizations: Building2, systems: Server, passwords: KeyRound, documents: FileText,
   domains: Globe, ssl_certificates: ShieldCheck, contacts: Users, locations: MapPin,
   checklists: CheckSquare, runbooks: BookOpen,
 }
 
 const entityColors: Record<string, string> = {
-  organizations: 'bg-blue-500', configurations: 'bg-purple-500', passwords: 'bg-red-500',
+  organizations: 'bg-blue-500', systems: 'bg-purple-500', passwords: 'bg-red-500',
   documents: 'bg-green-500', domains: 'bg-orange-500', ssl_certificates: 'bg-teal-500',
   contacts: 'bg-pink-500', locations: 'bg-indigo-500', checklists: 'bg-yellow-500', runbooks: 'bg-cyan-500',
 }

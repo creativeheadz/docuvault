@@ -4,7 +4,6 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.organizations import router as org_router
 from app.api.v1.locations import router as loc_router
 from app.api.v1.contacts import router as contact_router
-from app.api.v1.configurations import router as config_router
 from app.api.v1.passwords import router as password_router
 from app.api.v1.domains import router as domain_router
 from app.api.v1.ssl_certificates import router as ssl_router
@@ -35,13 +34,13 @@ from app.api.v1.uptime import router as uptime_router
 from app.api.v1.api_tokens import router as api_tokens_router
 from app.api.v1.network_maps import router as network_maps_router
 from app.api.v1.integration import router as integration_router
+from app.api.v1.inventory import router as inventory_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
 api_router.include_router(org_router)
 api_router.include_router(loc_router)
 api_router.include_router(contact_router)
-api_router.include_router(config_router)
 api_router.include_router(password_router)
 api_router.include_router(domain_router)
 api_router.include_router(ssl_router)
@@ -74,3 +73,5 @@ api_router.include_router(network_maps_router)
 # Machine-authenticated (X-API-Key). Last, and separate: nothing above
 # this line accepts anything but a user JWT.
 api_router.include_router(integration_router)
+# Machine-authenticated too, by write:systems: the inventory push.
+api_router.include_router(inventory_router)

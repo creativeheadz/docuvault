@@ -17,7 +17,7 @@ function when(value: string | null) {
 /**
  * What a key may do. Each scope is checked by exactly one router on the
  * server, which asks for it by name; a key holds the scopes it was minted
- * with and nothing widens them later. Neither reaches a stored password.
+ * with and nothing widens them later. None reaches a stored password.
  */
 const SCOPES: { id: string; label: string; detail: string }[] = [
   {
@@ -29,6 +29,11 @@ const SCOPES: { id: string; label: string; detail: string }[] = [
     id: 'write:tasks',
     label: 'Read and change tasks',
     detail: 'What an assistant keeping a roadmap here uses. Tasks only, nothing else in the vault.',
+  },
+  {
+    id: 'write:systems',
+    label: 'Push systems',
+    detail: 'What Wegweiser uses to push the machines its agents see. Creates and updates systems only; reads nothing.',
   },
 ]
 
@@ -132,7 +137,8 @@ export function ApiKeysSettings() {
           A key carries only the scopes it was minted with:{' '}
           <code className="font-mono">read:context</code> reads documentation for an
           integration, <code className="font-mono">write:tasks</code> reads and changes
-          tasks. Neither can reach a stored password, whatever it is pointed at.
+          tasks, <code className="font-mono">write:systems</code> pushes machines in as
+          systems. None can reach a stored password, whatever it is pointed at.
         </div>
 
         {isLoading && <div className="text-sm text-gray-500">Loading…</div>}

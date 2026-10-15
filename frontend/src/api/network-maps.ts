@@ -39,7 +39,7 @@ export const deleteNetworkMap = async (id: string) => {
   await client.delete(`/network-maps/${id}`)
 }
 
-export const getMapPlacements = async (params?: { configuration_id?: string }) => {
+export const getMapPlacements = async (params?: { system_id?: string }) => {
   const { data } = await client.get<MapPlacement[]>('/network-maps/placements', { params })
   return data
 }

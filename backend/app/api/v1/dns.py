@@ -1,4 +1,4 @@
-"""Tiny DNS-lookup endpoint for the Configurations form auto-resolve."""
+"""Tiny DNS-lookup endpoint for the system form's hostname auto-resolve."""
 
 import asyncio
 import socket

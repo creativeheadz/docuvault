@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import decrypt, encrypt
 from app.core.net_guard import assert_public_url
 from app.models.organization import Organization
-from app.models.configuration import Configuration
+from app.models.system import System
+from app.services import system_service
 from app.models.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
@@ -258,7 +259,7 @@ async def test_meshcentral(db: AsyncSession) -> dict:
 
 
 async def sync_meshcentral(db: AsyncSession) -> dict:
-    """Full sync: upsert organizations from meshes and configurations from nodes."""
+    """Full sync: upsert organizations from meshes and systems from nodes."""
     settings = await _get_mesh_settings(db)
     if not settings:
         raise ValueError("MeshCentral is not configured")
@@ -301,7 +302,7 @@ async def sync_meshcentral(db: AsyncSession) -> dict:
         except Exception as e:
             stats["errors"].append(f"Mesh {mesh_id}: {e}")
 
-    # --- Sync nodes -> Configurations ---
+    # --- Sync nodes -> Systems ---
     nodes = await client.get_nodes()
 
     for node in nodes:
@@ -337,7 +338,7 @@ async def sync_meshcentral(db: AsyncSession) -> dict:
                     extra[key] = node[key]
 
             result = await db.execute(
-                select(Configuration).where(Configuration.mesh_node_id == node_id)
+                select(System).where(System.mesh_node_id == node_id)
             )
             config = result.scalar_one_or_none()
 
@@ -352,9 +353,12 @@ async def sync_meshcentral(db: AsyncSession) -> dict:
                 config.organization_id = org.id
                 stats["devices_updated"] += 1
             else:
-                config = Configuration(
+                name = node.get("name", "Unknown")
+                config = System(
                     organization_id=org.id,
-                    name=node.get("name", "Unknown"),
+                    name=name,
+                    slug=await system_service.ensure_unique_slug(db, system_service.slugify(name)),
+                    source="meshcentral",
                     hostname=node.get("rname") or node.get("name"),
                     operating_system=node.get("osdesc"),
                     ip_address=ip_addr,

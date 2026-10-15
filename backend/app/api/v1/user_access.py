@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.contact import Contact
 from app.models.cloud_service import CloudService
-from app.models.configuration import Configuration
+from app.models.system import System
 from app.models.user_access import UserAccess
 from app.models.user import User
 
@@ -41,7 +41,7 @@ def _add_months(d: date, months: int) -> date:
 class UserAccessCreate(BaseModel):
     contact_id: uuid.UUID
     cloud_service_id: uuid.UUID | None = None
-    configuration_id: uuid.UUID | None = None
+    system_id: uuid.UUID | None = None
     custom_system_label: str | None = None
 
     privilege_level: str = "standard"
@@ -57,10 +57,10 @@ class UserAccessCreate(BaseModel):
 
     @model_validator(mode="after")
     def one_target(self):
-        targets = [self.cloud_service_id, self.configuration_id, self.custom_system_label]
+        targets = [self.cloud_service_id, self.system_id, self.custom_system_label]
         filled = sum(1 for t in targets if t is not None and t != "")
         if filled != 1:
-            raise ValueError("Exactly one of cloud_service_id, configuration_id, or custom_system_label must be provided")
+            raise ValueError("Exactly one of cloud_service_id, system_id, or custom_system_label must be provided")
         return self
 
 
@@ -83,9 +83,9 @@ class UserAccessResponse(BaseModel):
     contact_email: str | None
 
     cloud_service_id: uuid.UUID | None
-    configuration_id: uuid.UUID | None
+    system_id: uuid.UUID | None
     custom_system_label: str | None
-    system_type: str  # "cloud_service" | "configuration" | "custom"
+    system_type: str  # "cloud_service" | "system" | "custom"
     system_label: str
     system_key: str  # composite key for grouping (e.g. "cs:<uuid>")
 
@@ -116,10 +116,10 @@ def _to_response(item: UserAccess) -> UserAccessResponse:
         system_type = "cloud_service"
         system_label = item.cloud_service.name if item.cloud_service else "(deleted cloud service)"
         system_key = f"cs:{item.cloud_service_id}"
-    elif item.configuration_id:
-        system_type = "configuration"
-        system_label = item.configuration.name if item.configuration else "(deleted configuration)"
-        system_key = f"cfg:{item.configuration_id}"
+    elif item.system_id:
+        system_type = "system"
+        system_label = item.system.name if item.system else "(deleted system)"
+        system_key = f"sys:{item.system_id}"
     else:
         system_type = "custom"
         system_label = item.custom_system_label or "(unnamed)"
@@ -133,7 +133,7 @@ def _to_response(item: UserAccess) -> UserAccessResponse:
         contact_name=contact_name,
         contact_email=contact_email,
         cloud_service_id=item.cloud_service_id,
-        configuration_id=item.configuration_id,
+        system_id=item.system_id,
         custom_system_label=item.custom_system_label,
         system_type=system_type,
         system_label=system_label,
@@ -164,7 +164,7 @@ def _validate_enum(value: str, allowed: set[str], field: str) -> None:
 async def list_user_access(
     contact_id: uuid.UUID | None = Query(None),
     cloud_service_id: uuid.UUID | None = Query(None),
-    configuration_id: uuid.UUID | None = Query(None),
+    system_id: uuid.UUID | None = Query(None),
     include_inactive: bool = Query(False),
     overdue_only: bool = Query(False),
     db: AsyncSession = Depends(get_db),
@@ -177,8 +177,8 @@ async def list_user_access(
         query = query.where(UserAccess.contact_id == contact_id)
     if cloud_service_id:
         query = query.where(UserAccess.cloud_service_id == cloud_service_id)
-    if configuration_id:
-        query = query.where(UserAccess.configuration_id == configuration_id)
+    if system_id:
+        query = query.where(UserAccess.system_id == system_id)
     if overdue_only:
         query = query.where(UserAccess.is_active.is_(True), UserAccess.next_review_date <= date.today())
     query = query.order_by(UserAccess.next_review_date.asc())
@@ -245,10 +245,10 @@ async def access_matrix(
             key = f"cs:{a.cloud_service_id}"
             name = a.cloud_service.name if a.cloud_service else "(deleted)"
             systems.setdefault(key, {"key": key, "type": "cloud_service", "name": name})
-        elif a.configuration_id:
-            key = f"cfg:{a.configuration_id}"
-            name = a.configuration.name if a.configuration else "(deleted)"
-            systems.setdefault(key, {"key": key, "type": "configuration", "name": name})
+        elif a.system_id:
+            key = f"sys:{a.system_id}"
+            name = a.system.name if a.system else "(deleted)"
+            systems.setdefault(key, {"key": key, "type": "system", "name": name})
         elif a.custom_system_label:
             key = f"custom:{a.custom_system_label}"
             systems.setdefault(key, {"key": key, "type": "custom", "name": a.custom_system_label})
@@ -257,8 +257,8 @@ async def access_matrix(
     for a in accesses:
         if a.cloud_service_id:
             key = f"cs:{a.cloud_service_id}"
-        elif a.configuration_id:
-            key = f"cfg:{a.configuration_id}"
+        elif a.system_id:
+            key = f"sys:{a.system_id}"
         else:
             key = f"custom:{a.custom_system_label}"
         cells.append({
@@ -299,8 +299,8 @@ async def export_csv(
     for a in items:
         if a.cloud_service_id:
             system_type, system_label = "cloud_service", a.cloud_service.name if a.cloud_service else ""
-        elif a.configuration_id:
-            system_type, system_label = "configuration", a.configuration.name if a.configuration else ""
+        elif a.system_id:
+            system_type, system_label = "system", a.system.name if a.system else ""
         else:
             system_type, system_label = "custom", a.custom_system_label or ""
         c = a.contact
@@ -348,10 +348,10 @@ async def create_user_access(
         cs = (await db.execute(select(CloudService.id).where(CloudService.id == body.cloud_service_id))).scalar_one_or_none()
         if not cs:
             raise HTTPException(status_code=404, detail="Cloud service not found")
-    if body.configuration_id:
-        cfg = (await db.execute(select(Configuration.id).where(Configuration.id == body.configuration_id))).scalar_one_or_none()
+    if body.system_id:
+        cfg = (await db.execute(select(System.id).where(System.id == body.system_id))).scalar_one_or_none()
         if not cfg:
-            raise HTTPException(status_code=404, detail="Configuration not found")
+            raise HTTPException(status_code=404, detail="System not found")
 
     data = body.model_dump()
     if data.get("next_review_date") is None:

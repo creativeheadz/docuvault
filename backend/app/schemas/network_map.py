@@ -18,7 +18,7 @@ class Viewport(_GraphModel):
 
 class MapNode(_GraphModel):
     id: uuid.UUID
-    configuration_id: uuid.UUID | None = None
+    system_id: uuid.UUID | None = None
     kind: str = Field("other", max_length=30)
     label: str | None = Field(None, max_length=200)
     address: str | None = Field(None, max_length=100)
@@ -129,11 +129,11 @@ class RecordFirewallRule(BaseModel):
 
 
 class MapRecord(BaseModel):
-    """A configuration record as the map needs it: identity, addressing,
+    """A system as the map needs it: identity, addressing,
     live agent state and the compliance facts worth flagging on a node."""
     id: uuid.UUID
     name: str
-    configuration_type: str | None = None
+    category: str | None = None
     hostname: str | None = None
     ip_address: str | None = None
     mac_address: str | None = None
@@ -146,6 +146,10 @@ class MapRecord(BaseModel):
     mesh_node_id: str | None = None
     mesh_agent_connected: bool | None = None
     mesh_last_sync_at: datetime | None = None
+    wegweiser_device_id: str | None = None
+    wegweiser_online: bool | None = None
+    wegweiser_last_seen_at: datetime | None = None
+    wegweiser_extra: dict | None = None
     ce_in_scope: bool = True
     software_firewall_on: bool | None = None
     malware_protection: str | None = None
@@ -165,7 +169,7 @@ class NetworkMapDetail(NetworkMapSummary):
 
 
 class Placement(BaseModel):
-    configuration_id: uuid.UUID
+    system_id: uuid.UUID
     map_id: uuid.UUID
     map_name: str
     node_id: uuid.UUID

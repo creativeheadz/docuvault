@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.organization import Organization
-from app.models.configuration import Configuration
+from app.models.system import System
 from app.models.password import Password
 from app.models.document import Document
 from app.models.domain import Domain
@@ -53,7 +53,7 @@ async def coverage_report(
 ):
     entity_models = [
         ("organizations", Organization),
-        ("configurations", Configuration),
+        ("systems", System),
         ("passwords", Password),
         ("documents", Document),
         ("domains", Domain),

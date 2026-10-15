@@ -4,7 +4,7 @@ import type { UserAccess, UserAccessStats, AccessMatrix } from '@/types'
 export interface ListUserAccessParams {
   contact_id?: string
   cloud_service_id?: string
-  configuration_id?: string
+  system_id?: string
   include_inactive?: boolean
   overdue_only?: boolean
 }

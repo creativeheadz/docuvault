@@ -21,7 +21,7 @@ function drag(e: DragEvent, payload: DragPayload) {
   e.dataTransfer.effectAllowed = 'copy'
 }
 
-/** Left rail: the organisation's records not yet on the map, and blank kinds to sketch with. */
+/** Left rail: the organisation's systems not yet on the map, and blank kinds to sketch with. */
 export function Palette({
   unplaced, totalRecords, collapsed, onToggle, onPlaceAll, onAddKind, onAddRecord, onAddZone,
 }: PaletteProps) {
@@ -30,17 +30,17 @@ export function Palette({
     const q = query.trim().toLowerCase()
     if (!q) return unplaced
     return unplaced.filter((r) =>
-      [r.name, r.hostname, r.ip_address, r.configuration_type, r.model].some((v) => v?.toLowerCase().includes(q)),
+      [r.name, r.hostname, r.ip_address, r.category, r.model].some((v) => v?.toLowerCase().includes(q)),
     )
   }, [unplaced, query])
 
   if (collapsed) {
     return (
       <aside className="nm-rail nm-rail--collapsed">
-        <button className="nm-rail-toggle" onClick={onToggle} title="Show records and kinds">
+        <button className="nm-rail-toggle" onClick={onToggle} title="Show systems and kinds">
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
-        {unplaced.length > 0 && <span className="nm-rail-count" title={`${unplaced.length} records not on the map`}>{unplaced.length}</span>}
+        {unplaced.length > 0 && <span className="nm-rail-count" title={`${unplaced.length} systems not on the map`}>{unplaced.length}</span>}
       </aside>
     )
   }
@@ -48,7 +48,7 @@ export function Palette({
   return (
     <aside className="nm-rail">
       <div className="nm-rail-head">
-        <span className="kicker">§ Records</span>
+        <span className="kicker">§ Systems</span>
         <span className="nm-rail-meta tnum">{totalRecords - unplaced.length}/{totalRecords} placed</span>
         <button className="nm-rail-toggle ml-auto" onClick={onToggle} title="Hide panel">
           <ChevronLeft className="h-3.5 w-3.5" />
@@ -57,15 +57,15 @@ export function Palette({
 
       {totalRecords === 0 ? (
         <p className="nm-rail-note">
-          This organisation has no configuration records yet. Sketch devices below, and turn any of them into a record from the inspector.
+          This organisation has no systems yet. Sketch devices below, and turn any of them into a system from the inspector.
         </p>
       ) : unplaced.length === 0 ? (
-        <p className="nm-rail-note">Every record is on the map.</p>
+        <p className="nm-rail-note">Every system is on the map.</p>
       ) : (
         <>
           <div className="nm-rail-search">
             <Search className="h-3 w-3" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a record" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a system" />
           </div>
           <ul className="nm-records">
             {shown.map((r) => {
@@ -82,7 +82,7 @@ export function Palette({
                   <span className="nm-records-glyph"><Icon /></span>
                   <span className="min-w-0 flex-1">
                     <span className="nm-records-name">{r.name}</span>
-                    <span className="nm-records-addr">{r.ip_address || r.hostname || r.configuration_type || '—'}</span>
+                    <span className="nm-records-addr">{r.ip_address || r.hostname || r.category || '—'}</span>
                   </span>
                   {r.mesh_node_id && (
                     <span

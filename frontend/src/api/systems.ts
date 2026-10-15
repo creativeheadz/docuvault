@@ -1,8 +1,24 @@
 import client from './client'
-import type { System, SystemChatMessage, SystemChatTurn } from '@/types'
+import type { FleetReadiness, System, SystemChatMessage, SystemChatTurn } from '@/types'
 
-export const getSystems = async (params?: Record<string, unknown>) => {
+export interface ListSystemsParams {
+  search?: string
+  organization_id?: string
+  /** Only systems that belong to no organisation. */
+  estate_only?: boolean
+  include_archived?: boolean
+  /** Came from, or is synced by, this source. */
+  source?: string
+}
+
+/** Every matching system; the list is not paginated. */
+export const getSystems = async (params?: ListSystemsParams) => {
   const { data } = await client.get<System[]>('/systems', { params })
+  return data
+}
+
+export const getFleetReadiness = async () => {
+  const { data } = await client.get<FleetReadiness>('/systems/fleet-readiness')
   return data
 }
 

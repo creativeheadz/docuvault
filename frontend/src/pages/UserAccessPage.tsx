@@ -6,7 +6,7 @@ import {
 } from '@/api/user-access'
 import { getContacts } from '@/api/contacts'
 import { getCloudServices } from '@/api/cloud-services'
-import { getConfigurations } from '@/api/configurations'
+import { getSystems } from '@/api/systems'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -31,9 +31,9 @@ const errorDetail = (err: unknown): string => {
 
 interface FormState {
   contact_id: string
-  system_kind: 'cloud_service' | 'configuration' | 'custom'
+  system_kind: 'cloud_service' | 'system' | 'custom'
   cloud_service_id: string
-  configuration_id: string
+  system_id: string
   custom_system_label: string
   privilege_level: AccessPrivilege
   person_category: PersonCategory | ''
@@ -48,7 +48,7 @@ const emptyForm = (): FormState => ({
   contact_id: '',
   system_kind: 'cloud_service',
   cloud_service_id: '',
-  configuration_id: '',
+  system_id: '',
   custom_system_label: '',
   privilege_level: 'standard',
   person_category: 'employee',
@@ -93,9 +93,9 @@ export default function UserAccessPage() {
     queryKey: ['cloud-services', 'for-access'],
     queryFn: () => getCloudServices(),
   })
-  const { data: configurations = [] } = useQuery({
-    queryKey: ['configurations'],
-    queryFn: () => getConfigurations({ page: 1, page_size: 100 }),
+  const { data: systems = [] } = useQuery({
+    queryKey: ['systems'],
+    queryFn: () => getSystems(),
   })
 
   const invalidate = () => {
@@ -105,7 +105,7 @@ export default function UserAccessPage() {
   const buildPayload = (f: FormState): Partial<UserAccess> => ({
     contact_id: f.contact_id,
     cloud_service_id: f.system_kind === 'cloud_service' ? (f.cloud_service_id || null) : null,
-    configuration_id: f.system_kind === 'configuration' ? (f.configuration_id || null) : null,
+    system_id: f.system_kind === 'system' ? (f.system_id || null) : null,
     custom_system_label: f.system_kind === 'custom' ? (f.custom_system_label || null) : null,
     privilege_level: f.privilege_level,
     person_category: f.person_category || null,
@@ -157,7 +157,7 @@ export default function UserAccessPage() {
       contact_id: a.contact_id,
       system_kind: a.system_type,
       cloud_service_id: a.cloud_service_id || '',
-      configuration_id: a.configuration_id || '',
+      system_id: a.system_id || '',
       custom_system_label: a.custom_system_label || '',
       privilege_level: a.privilege_level,
       person_category: a.person_category || '',
@@ -420,7 +420,7 @@ export default function UserAccessPage() {
               <div>
                 <label className="label-micro">System type</label>
                 <div className="flex gap-3 text-sm">
-                  {(['cloud_service', 'configuration', 'custom'] as AccessSystemType[]).map((k) => (
+                  {(['cloud_service', 'system', 'custom'] as AccessSystemType[]).map((k) => (
                     <label key={k} className="flex items-center gap-1.5">
                       <input
                         type="radio"
@@ -447,17 +447,17 @@ export default function UserAccessPage() {
                   </select>
                 </div>
               )}
-              {form.system_kind === 'configuration' && (
+              {form.system_kind === 'system' && (
                 <div>
-                  <label className="label-micro">Configuration / device</label>
+                  <label className="label-micro">System</label>
                   <select
-                    value={form.configuration_id}
-                    onChange={(e) => setForm({ ...form, configuration_id: e.target.value })}
+                    value={form.system_id}
+                    onChange={(e) => setForm({ ...form, system_id: e.target.value })}
                     className="input-field"
                     required
                   >
                     <option value="">Select…</option>
-                    {configurations.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {systems.filter((c) => c.organization_id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
               )}

@@ -13,7 +13,7 @@ export type DeviceData = {
   address: string | null
   functions: string[]
   notes: string | null
-  configuration_id: string | null
+  system_id: string | null
 }
 
 export type ZoneData = {
@@ -60,7 +60,7 @@ export function toDeviceNode(n: MapNode): DeviceNode {
     position: { x: n.x, y: n.y },
     data: {
       kind: n.kind, label: n.label, address: n.address, functions: n.functions ?? [],
-      notes: n.notes, configuration_id: n.configuration_id,
+      notes: n.notes, system_id: n.system_id,
     },
   }
 }
@@ -101,7 +101,7 @@ export function toGraph(nodes: MapFlowNode[], edges: LinkEdge[]): Omit<MapGraphS
   for (const n of nodes) {
     if (isDevice(n)) {
       devices.push({
-        id: n.id, configuration_id: n.data.configuration_id, kind: n.data.kind,
+        id: n.id, system_id: n.data.system_id, kind: n.data.kind,
         label: n.data.label?.trim() || null, address: n.data.address?.trim() || null,
         x: r1(n.position.x), y: r1(n.position.y),
         functions: n.data.functions, notes: n.data.notes || null,

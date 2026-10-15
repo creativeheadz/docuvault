@@ -8,7 +8,7 @@ import UptimeCard from '@/components/dashboard/UptimeCard'
 
 const quickLinks = [
   { label: 'Organizations',  icon: Building2,    path: '/organizations'    },
-  { label: 'Configurations', icon: Server,       path: '/configurations'   },
+  { label: 'Systems',        icon: Server,       path: '/systems'          },
   { label: 'Passwords',      icon: KeyRound,     path: '/passwords'        },
   { label: 'Documents',      icon: FileText,     path: '/documents'        },
   { label: 'Domains',        icon: Globe,        path: '/domains'          },

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 
-# What a box on the map can be. A node backed by a configuration record still
+# What a box on the map can be. A node backed by a system record still
 # carries a kind of its own: the record says "Workstation", the map wants an
 # icon and a shape, and the two are allowed to disagree.
 NODE_KINDS = (
@@ -69,12 +69,12 @@ class NetworkMapNode(TimestampMixin, Base):
     map_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("network_maps.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    configuration_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("configurations.id", ondelete="SET NULL"), nullable=True, index=True
+    system_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("systems.id", ondelete="SET NULL"), nullable=True, index=True
     )
     kind: Mapped[str] = mapped_column(String(30), nullable=False, default="other")
-    # Shown instead of the record's name when set; the only name a sketched
-    # node (one with no record behind it) has.
+    # Shown instead of the system's name when set; the only name a sketched
+    # node (one with no system behind it) has.
     label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     address: Mapped[str | None] = mapped_column(String(100), nullable=True)
     x: Mapped[float] = mapped_column(Float, nullable=False, default=0)

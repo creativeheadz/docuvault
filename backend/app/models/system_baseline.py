@@ -8,14 +8,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 
-class ConfigurationBaseline(TimestampMixin, Base):
-    __tablename__ = "configuration_baselines"
+class SystemBaseline(TimestampMixin, Base):
+    __tablename__ = "system_baselines"
     __table_args__ = (
-        UniqueConstraint("configuration_id", "checklist_id", name="uq_configuration_baselines_config_checklist"),
+        UniqueConstraint("system_id", "checklist_id", name="uq_system_baselines_system_checklist"),
     )
 
-    configuration_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("configurations.id", ondelete="CASCADE"), nullable=False, index=True
+    system_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("systems.id", ondelete="CASCADE"), nullable=False, index=True
     )
     checklist_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("checklists.id", ondelete="CASCADE"), nullable=False, index=True
@@ -25,5 +25,5 @@ class ConfigurationBaseline(TimestampMixin, Base):
     next_review_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    configuration = relationship("Configuration", lazy="selectin")
+    system = relationship("System", lazy="selectin")
     checklist = relationship("Checklist", lazy="selectin")

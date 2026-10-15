@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils'
 import { useSidebarStore } from '@/store/sidebarStore'
 import {
   LayoutDashboard, Building2, MapPin, Users, Server, KeyRound,
-  Globe, ShieldCheck, FileText, Puzzle, CheckSquare, BookOpen,
-  Search, Settings, ChevronLeft, ChevronRight, ChevronDown, Boxes,
+  Globe, ShieldCheck, FileText, CheckSquare, BookOpen,
+  Search, Settings, ChevronLeft, ChevronRight, ChevronDown,
   ListTodo, Shield, Cloud, UserCheck, ClipboardCheck, Network,
   type LucideIcon,
 } from 'lucide-react'
@@ -29,14 +29,12 @@ const workspaceItems: NavItem[] = [
   { path: '/organizations',     label: 'Organizations',  icon: Building2 },
   { path: '/locations',         label: 'Locations',      icon: MapPin },
   { path: '/contacts',          label: 'Contacts',       icon: Users },
-  { path: '/configurations',    label: 'Configurations', icon: Server },
+  { path: '/systems',           label: 'Systems',        icon: Server },
   { path: '/network-maps',      label: 'Network Maps',   icon: Network },
-  { path: '/systems',           label: 'Systems',        icon: Boxes },
   { path: '/passwords',         label: 'Passwords',      icon: KeyRound },
   { path: '/domains',           label: 'Domains',        icon: Globe },
   { path: '/ssl-certificates',  label: 'SSL Certs',      icon: ShieldCheck },
   { path: '/documents',         label: 'Documents',      icon: FileText },
-  { path: '/flexible-assets',   label: 'Assets',         icon: Puzzle },
   { path: '/checklists',        label: 'Checklists',     icon: CheckSquare },
   { path: '/runbooks',          label: 'Runbooks',       icon: BookOpen },
   { path: '/tasks',             label: 'Tasks',          icon: ListTodo },

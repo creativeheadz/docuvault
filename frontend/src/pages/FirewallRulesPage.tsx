@@ -5,7 +5,7 @@ import {
   reviewFirewallRule, getFirewallRulesStats, exportFirewallRulesCsvUrl,
 } from '@/api/firewall-rules'
 import { getOrganizations } from '@/api/organizations'
-import { getConfigurations } from '@/api/configurations'
+import { getSystems } from '@/api/systems'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
@@ -24,7 +24,7 @@ const STATUSES: FirewallRuleStatus[] = ['active', 'pending', 'removed']
 interface FormState {
   name: string
   organization_id: string
-  configuration_id: string
+  system_id: string
   direction: FirewallRuleDirection
   external_port: string
   internal_host: string
@@ -42,7 +42,7 @@ interface FormState {
 const emptyForm = (): FormState => ({
   name: '',
   organization_id: '',
-  configuration_id: '',
+  system_id: '',
   direction: 'inbound',
   external_port: '',
   internal_host: '',
@@ -99,9 +99,9 @@ export default function FirewallRulesPage() {
     queryFn: () => getOrganizations({ page: 1, page_size: 100 }),
   })
 
-  const { data: configs } = useQuery({
-    queryKey: ['configurations', 'fwrules'],
-    queryFn: () => getConfigurations({ page: 1, page_size: 100 }),
+  const { data: systems } = useQuery({
+    queryKey: ['systems', 'fwrules'],
+    queryFn: () => getSystems(),
   })
 
   const { data: stats } = useQuery({ queryKey: ['firewall-rules', 'stats'], queryFn: getFirewallRulesStats })
@@ -125,7 +125,7 @@ export default function FirewallRulesPage() {
       const payload: Partial<FirewallRule> = {
         name: form.name,
         organization_id: form.organization_id || null,
-        configuration_id: form.configuration_id || null,
+        system_id: form.system_id || null,
         direction: form.direction,
         external_port: form.external_port,
         internal_host: form.internal_host,
@@ -174,7 +174,7 @@ export default function FirewallRulesPage() {
     setForm({
       name: r.name,
       organization_id: r.organization_id || '',
-      configuration_id: r.configuration_id || '',
+      system_id: r.system_id || '',
       direction: r.direction,
       external_port: r.external_port,
       internal_host: r.internal_host,
@@ -289,8 +289,8 @@ export default function FirewallRulesPage() {
                   <td className="px-3 py-2 font-mono text-xs">{r.protocol}</td>
                   <td className="px-3 py-2 font-mono text-xs">
                     {r.internal_host}{r.internal_port ? `:${r.internal_port}` : ''}
-                    {r.configuration_name && (
-                      <div className="text-xxs text-ink-faint font-sans">{r.configuration_name}</div>
+                    {r.system_name && (
+                      <div className="text-xxs text-ink-faint font-sans">{r.system_name}</div>
                     )}
                   </td>
                   <td className="px-3 py-2 max-w-[280px]">
@@ -400,14 +400,14 @@ export default function FirewallRulesPage() {
               placeholder="192.168.1.50"
             />
             <div>
-              <label className="label-micro">Linked configuration (optional)</label>
+              <label className="label-micro">Linked system (optional)</label>
               <select
-                value={form.configuration_id}
-                onChange={(e) => setForm({ ...form, configuration_id: e.target.value })}
+                value={form.system_id}
+                onChange={(e) => setForm({ ...form, system_id: e.target.value })}
                 className="input-field"
               >
                 <option value="">— None —</option>
-                {configs?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {systems?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>

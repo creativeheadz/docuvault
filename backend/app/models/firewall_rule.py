@@ -14,8 +14,8 @@ class FirewallRule(TimestampMixin, Base):
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    configuration_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("configurations.id", ondelete="SET NULL"), nullable=True, index=True
+    system_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("systems.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -39,4 +39,4 @@ class FirewallRule(TimestampMixin, Base):
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", lazy="selectin")
-    configuration = relationship("Configuration", lazy="selectin")
+    system = relationship("System", lazy="selectin")

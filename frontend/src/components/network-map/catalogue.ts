@@ -89,7 +89,7 @@ export const ZONE_TONE_ORDER = Object.keys(ZONE_TONES) as ZoneTone[]
 
 /** Display name: the map's own label, else the record's name, else the kind. */
 export function nodeName(
-  data: { label: string | null; kind: NodeKind; configuration_id: string | null },
+  data: { label: string | null; kind: NodeKind; system_id: string | null },
   record?: MapRecord,
 ): string {
   return data.label?.trim() || record?.name || NODE_KINDS[data.kind]?.label || 'Device'
@@ -115,7 +115,7 @@ const RULES: [NodeKind, RegExp][] = [
 /** Best guess at how to draw a record, from everything it says about itself. */
 export function inferKind(record: MapRecord): NodeKind {
   const text = [
-    record.configuration_type, record.name, record.model, record.manufacturer, record.operating_system,
+    record.category, record.name, record.model, record.manufacturer, record.operating_system,
   ].filter(Boolean).join(' ').toLowerCase()
   for (const [kind, re] of RULES) if (re.test(text)) return kind
   if (record.device_role === 'server') return 'server'

@@ -20,7 +20,7 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import { getNetworkMap, saveNetworkMapGraph, updateNetworkMap } from '@/api/network-maps'
 import { getUptimeMonitors } from '@/api/uptime'
 import { getLocations } from '@/api/locations'
-import { createConfiguration } from '@/api/configurations'
+import { createSystem } from '@/api/systems'
 import { Spinner } from '@/components/ui/Spinner'
 import type { DeviceRole, LinkRole, MapRecord, NetworkMapDetail, NodeKind } from '@/types'
 import { NODE_KINDS, inferKind, inferLinkKind, nodeName } from './catalogue'
@@ -187,8 +187,8 @@ function Canvas({
   const devices = useMemo(() => nodes.filter(isDevice), [nodes])
   // Keys that change when what a device *is* changes, not when it moves,
   // so dragging doesn't recompute (and redraw) every plate on the map.
-  const identityKey = devices.map((d) => `${d.id}:${d.data.configuration_id}:${d.data.address}:${d.data.label}`).join('|')
-  const placedKey = devices.map((d) => d.data.configuration_id ?? '').join('|')
+  const identityKey = devices.map((d) => `${d.id}:${d.data.system_id}:${d.data.address}:${d.data.label}`).join('|')
+  const placedKey = devices.map((d) => d.data.system_id ?? '').join('|')
   const unplaced = useMemo(() => {
     const placed = new Set(placedKey.split('|'))
     return recordList.filter((r) => !r.archived && !placed.has(r.id))
@@ -199,7 +199,7 @@ function Canvas({
   const live = useMemo(() => {
     const m = new Map<string, Live>()
     for (const d of devices) {
-      m.set(d.id, liveFor(d.data.configuration_id ? records.get(d.data.configuration_id) : undefined, d.data.address, d.data.label, monitors))
+      m.set(d.id, liveFor(d.data.system_id ? records.get(d.data.system_id) : undefined, d.data.address, d.data.label, monitors))
     }
     return m
   }, [identityKey, records, monitors])
@@ -357,7 +357,7 @@ function Canvas({
     }
     const node: DeviceNode = {
       id, type: 'device', position, selected: true,
-      data: { kind: opts.kind, label: null, address: null, functions: [], notes: null, configuration_id: opts.record?.id ?? null },
+      data: { kind: opts.kind, label: null, address: null, functions: [], notes: null, system_id: opts.record?.id ?? null },
     }
     setNodes((ns) => [...deselected(ns), node])
     setEdges((es) => (link ? [...deselected(es), link] : deselected(es)))
@@ -378,7 +378,7 @@ function Canvas({
   const arrangement = useCallback((ns: MapFlowNode[], es: LinkEdge[]): Map<string, Target> => {
     const devs = ns.filter(isDevice)
     const pos = layoutTree(
-      devs.map((d) => ({ id: d.id, kind: d.data.kind, name: nodeName(d.data, d.data.configuration_id ? records.get(d.data.configuration_id) : undefined) })),
+      devs.map((d) => ({ id: d.id, kind: d.data.kind, name: nodeName(d.data, d.data.system_id ? records.get(d.data.system_id) : undefined) })),
       es.map((e) => ({ source: e.source, target: e.target, role: e.data!.role })),
     )
     const out = new Map<string, Target>(pos)
@@ -427,7 +427,7 @@ function Canvas({
     checkpoint()
     const added: DeviceNode[] = unplaced.map((r) => ({
       id: newId(), type: 'device', position: { x: 0, y: 0 },
-      data: { kind: inferKind(r), label: null, address: null, functions: [], notes: null, configuration_id: r.id },
+      data: { kind: inferKind(r), label: null, address: null, functions: [], notes: null, system_id: r.id },
     }))
     const next = [...deselected(rf.getNodes()), ...added]
     const targets = arrangement(next, rf.getEdges())
@@ -436,7 +436,7 @@ function Canvas({
       return t ? { ...n, position: { x: t.x, y: t.y }, ...(isZone(n) && t.width ? { width: t.width, height: t.height } : {}) } : n
     }))
     window.setTimeout(() => rf.fitView({ padding: 0.15, duration: 600, maxZoom: 1.1 }), 80)
-    toast.success(`Placed ${added.length} record${added.length === 1 ? '' : 's'}. Drag between devices to say what plugs into what.`)
+    toast.success(`Placed ${added.length} system${added.length === 1 ? '' : 's'}. Drag between devices to say what plugs into what.`)
   }, [unplaced, checkpoint, rf, arrangement, setNodes])
 
   const startFromTheTop = useCallback(() => {
@@ -444,11 +444,11 @@ function Canvas({
     const c = viewportCentre()
     const wan: DeviceNode = {
       id: newId(), type: 'device', position: { x: c.x - DEVICE_W / 2, y: c.y - DEVICE_H - 40 },
-      data: { kind: 'internet', label: null, address: null, functions: [], notes: null, configuration_id: null },
+      data: { kind: 'internet', label: null, address: null, functions: [], notes: null, system_id: null },
     }
     const fw: DeviceNode = {
       id: newId(), type: 'device', position: { x: c.x - DEVICE_W / 2, y: c.y + 20 }, selected: true,
-      data: { kind: 'firewall', label: null, address: null, functions: ['Gateway', 'NAT'], notes: null, configuration_id: null },
+      data: { kind: 'firewall', label: null, address: null, functions: ['Gateway', 'NAT'], notes: null, system_id: null },
     }
     setNodes((ns) => [...deselected(ns), wan, fw])
     setEdges((es) => [...deselected(es), makeLink(fw.id, wan.id, 'uplink', 'wan')])
@@ -581,13 +581,13 @@ function Canvas({
     const n = rf.getNode(id)
     if (!n || !isDevice(n)) return
     if (recordId === null) {
-      const was = n.data.configuration_id ? records.get(n.data.configuration_id) : undefined
-      updateDevice(id, { configuration_id: null, label: n.data.label || was?.name || null })
+      const was = n.data.system_id ? records.get(n.data.system_id) : undefined
+      updateDevice(id, { system_id: null, label: n.data.label || was?.name || null })
       return
     }
     const r = records.get(recordId)
     updateDevice(id, {
-      configuration_id: recordId,
+      system_id: recordId,
       ...(r && n.data.kind === 'other' ? { kind: inferKind(r) } : {}),
     })
   }, [rf, records, updateDevice])
@@ -600,14 +600,15 @@ function Canvas({
     const isIp = !!address && /^\d{1,3}(\.\d{1,3}){3}$/.test(address)
     const role: DeviceRole | null = kind.tier === 'compute' ? 'server' : kind.tier === 'edge' || kind.tier === 'fabric' ? 'network' : null
     try {
-      const cfg = await createConfiguration({
+      const cfg = await createSystem({
         organization_id: meta.organization_id,
         name: n.data.label?.trim() || kind.label,
-        configuration_type: kind.label,
+        category: kind.label,
         ip_address: isIp ? address : null,
         hostname: !isIp && address && !address.includes('/') ? address : null,
         device_role: role,
-        notes: n.data.notes,
+        body: n.data.notes,
+        source: 'map',
       })
       setCreated((c) => [...c, {
         ...cfg,
@@ -616,10 +617,10 @@ function Canvas({
         firewall_rules: [],
       }])
       void refreshRecords()
-      queryClient.invalidateQueries({ queryKey: ['configurations'] })
+      queryClient.invalidateQueries({ queryKey: ['systems'] })
       checkpoint()
-      updateDevice(id, { configuration_id: cfg.id, label: null, ...(isIp ? { address: null } : {}) })
-      toast.success(`Record created: ${cfg.name}`)
+      updateDevice(id, { system_id: cfg.id, label: null, ...(isIp ? { address: null } : {}) })
+      toast.success(`System created: ${cfg.name}`)
     } catch (err) {
       toast.error(errorDetail(err))
     }
@@ -712,7 +713,7 @@ function Canvas({
   useEffect(() => {
     const focus = params.get('focus')
     if (!focus) return
-    const target = rf.getNodes().find((n) => isDevice(n) && (n.data.configuration_id === focus || n.id === focus))
+    const target = rf.getNodes().find((n) => isDevice(n) && (n.data.system_id === focus || n.id === focus))
     if (target) {
       setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === target.id })))
       const { w, h } = sizeOf(target)
@@ -748,7 +749,7 @@ function Canvas({
     links: selectedEdges.length,
   } : null
   const liveStates = [...live.values()]
-  const placedCount = devices.filter((d) => d.data.configuration_id).length
+  const placedCount = devices.filter((d) => d.data.system_id).length
   const stats = {
     devices: devices.length,
     links: edges.length,
@@ -859,12 +860,12 @@ function Canvas({
             <h2>Start from the way out.</h2>
             <p>
               Put the internet at the top and the gateway under it, then plug everything else in below.
-              Or place every record of {meta.organization_name ?? 'this organisation'} and wire them up.
+              Or place every system of {meta.organization_name ?? 'this organisation'} and wire them up.
             </p>
             <div className="nm-empty-actions">
               <button className="btn-base btn-primary" onClick={startFromTheTop}><Globe className="h-3.5 w-3.5" /> Internet &amp; gateway</button>
               {unplaced.length > 0 && (
-                <button className="btn-base btn-secondary" onClick={placeAll}><Wand2 className="h-3.5 w-3.5" /> Place {unplaced.length} records</button>
+                <button className="btn-base btn-secondary" onClick={placeAll}><Wand2 className="h-3.5 w-3.5" /> Place {unplaced.length} systems</button>
               )}
             </div>
           </div>

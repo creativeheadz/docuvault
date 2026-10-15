@@ -74,12 +74,16 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
   )
 }
 
+const SOURCE_NAMES: Record<NonNullable<Live['source']>, string> = {
+  kuma: 'Uptime Kuma', mesh: 'MeshCentral', wegweiser: 'Wegweiser',
+}
+
 function LiveLine({ live }: { live: Live }) {
   return (
     <div className="nm-live-line" style={{ '--live': LIVE_COLOR[live.state] } as CSSProperties}>
       <span className="nm-live-pip" />
       <span className="nm-live-state">{LIVE_LABEL[live.state]}</span>
-      <span className="nm-live-src">{live.source === 'kuma' ? 'Uptime Kuma' : live.source === 'mesh' ? 'MeshCentral' : ''}</span>
+      <span className="nm-live-src">{live.source ? SOURCE_NAMES[live.source] : ''}</span>
     </div>
   )
 }
@@ -171,13 +175,13 @@ function DevicePanel({
   device, devices, edges, records, unplaced, live, gateways, descendants, autoFocusId, checkpoint, deviceTools: t,
 }: InspectorProps & { device: DeviceNode }) {
   const d = device.data
-  const record = d.configuration_id ? records.get(d.configuration_id) : undefined
+  const record = d.system_id ? records.get(d.system_id) : undefined
   const meta = NODE_KINDS[d.kind] ?? NODE_KINDS.other
   const Icon = meta.icon
   const state = live.get(device.id) ?? UNKNOWN
   const nameOf = (id: string) => {
     const n = devices.find((x) => x.id === id)
-    return n ? nodeName(n.data, n.data.configuration_id ? records.get(n.data.configuration_id) : undefined) : '—'
+    return n ? nodeName(n.data, n.data.system_id ? records.get(n.data.system_id) : undefined) : '—'
   }
   const gateway = gateways.get(device.id) ?? null
   const chain = useMemo(() => {
@@ -216,7 +220,7 @@ function DevicePanel({
       <header className="nm-panel-head">
         <span className={cn('nm-glyph nm-glyph--lg', `tier-${meta.tier}`)}><Icon /></span>
         <div className="min-w-0">
-          <div className="kicker">{meta.label} · {record ? 'record' : 'sketch'}</div>
+          <div className="kicker">{meta.label} · {record ? 'system' : 'sketch'}</div>
           <h2 className="nm-panel-title" title={nodeName(d, record)}>{nodeName(d, record)}</h2>
         </div>
       </header>
@@ -266,7 +270,7 @@ function DevicePanel({
           <option value="">None — this is a top of the tree</option>
           {gatewayOptions.map((n) => (
             <option key={n.id} value={n.id}>
-              {nodeName(n.data, n.data.configuration_id ? records.get(n.data.configuration_id) : undefined)} · {NODE_KINDS[n.data.kind].label}
+              {nodeName(n.data, n.data.system_id ? records.get(n.data.system_id) : undefined)} · {NODE_KINDS[n.data.kind].label}
             </option>
           ))}
         </select>
@@ -292,14 +296,14 @@ function DevicePanel({
         </div>
       </Section>
 
-      <Section title="§ Record">
+      <Section title="§ System">
         {record ? (
           <div className="space-y-3">
             {record.archived && <p className="nm-warn">This record is archived.</p>}
             <LiveLine live={state} />
             <Facts rows={[
-              ['Record', record.name],
-              ['Type', record.configuration_type],
+              ['System', record.name],
+              ['Type', record.category],
               ['Hostname', record.hostname],
               ['IP', record.ip_address],
               ['MAC', record.mac_address],
@@ -338,8 +342,8 @@ function DevicePanel({
               </div>
             )}
             <div className="nm-button-row">
-              <Link to={`/configurations?edit=${record.id}`} className="btn-base btn-secondary nm-btn">
-                <ExternalLink className="h-3 w-3" /> Open record
+              <Link to={`/systems/${record.id}`} className="btn-base btn-secondary nm-btn">
+                <ExternalLink className="h-3 w-3" /> Open system
               </Link>
               {record.mesh_node_id && (
                 <>
@@ -347,21 +351,21 @@ function DevicePanel({
                   <button className="btn-base btn-secondary nm-btn" onClick={() => remote('terminal')} title="Terminal"><Terminal className="h-3 w-3" /></button>
                 </>
               )}
-              <button className="btn-base btn-ghost nm-btn" onClick={() => { checkpoint(); t.linkRecord(device.id, null) }} title="Keep the device on the map, drop the link to the record">
+              <button className="btn-base btn-ghost nm-btn" onClick={() => { checkpoint(); t.linkRecord(device.id, null) }} title="Keep the device on the map, drop the link to the system">
                 <Unlink className="h-3 w-3" />
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="nm-hint">Drawn on the map only. Link it to a record, or make one from it.</p>
+            <p className="nm-hint">Drawn on the map only. Link it to a system, or make one from it.</p>
             <select
               className="input-field nm-input"
               value=""
               onChange={(e) => { if (e.target.value) { checkpoint(); t.linkRecord(device.id, e.target.value) } }}
               disabled={unplaced.length === 0}
             >
-              <option value="">{unplaced.length ? 'Link to a record…' : 'No unplaced records'}</option>
+              <option value="">{unplaced.length ? 'Link to a system…' : 'No unplaced systems'}</option>
               {unplaced.map((r) => <option key={r.id} value={r.id}>{r.name}{r.ip_address ? ` · ${r.ip_address}` : ''}</option>)}
             </select>
             <button
@@ -369,7 +373,7 @@ function DevicePanel({
               disabled={promoting}
               onClick={async () => { setPromoting(true); try { await t.promote(device.id) } finally { setPromoting(false) } }}
             >
-              <Plus className="h-3 w-3" /> {promoting ? 'Creating…' : 'Create a record from this device'}
+              <Plus className="h-3 w-3" /> {promoting ? 'Creating…' : 'Create a system from this device'}
             </button>
           </div>
         )}
@@ -420,7 +424,7 @@ function DevicePanel({
         <button className="btn-base btn-danger nm-btn w-full" onClick={() => t.remove(device.id)}>
           <Trash2 className="h-3 w-3" /> Remove from map
         </button>
-        {record && <p className="nm-hint mt-2">The record itself stays in Configurations.</p>}
+        {record && <p className="nm-hint mt-2">The system itself stays in Systems.</p>}
       </div>
     </div>
   )
@@ -432,7 +436,7 @@ function LinkPanel({ link, devices, records, gateways, checkpoint, linkTools: t 
   const d = link.data!
   const nameOf = (id: string) => {
     const n = devices.find((x) => x.id === id)
-    return n ? nodeName(n.data, n.data.configuration_id ? records.get(n.data.configuration_id) : undefined) : '—'
+    return n ? nodeName(n.data, n.data.system_id ? records.get(n.data.system_id) : undefined) : '—'
   }
   const a = nameOf(link.source)
   const b = nameOf(link.target)
@@ -620,7 +624,7 @@ function MapPanel({ meta, locations, onMeta, stats, liveConfigured }: InspectorP
         <div className="nm-stats">
           <div><b className="tnum">{stats.devices}</b><span>devices</span></div>
           <div><b className="tnum">{stats.links}</b><span>connections</span></div>
-          <div><b className="tnum">{stats.placed}<i>/{stats.records}</i></b><span>records placed</span></div>
+          <div><b className="tnum">{stats.placed}<i>/{stats.records}</i></b><span>systems placed</span></div>
           <div>
             <b className={cn('tnum', stats.down > 0 && 'text-bad')}>{liveConfigured ? `${stats.up}/${stats.down}` : '—'}</b>
             <span>{liveConfigured ? 'up / down' : 'no live feed'}</span>
@@ -674,7 +678,7 @@ function MapPanel({ meta, locations, onMeta, stats, liveConfigured }: InspectorP
           {(['up', 'down', 'pending', 'offline'] as const).map((s) => (
             <li key={s} style={{ '--live': LIVE_COLOR[s] } as CSSProperties}><span className="nm-live-pip" /><span>{LIVE_LABEL[s]}</span></li>
           ))}
-          <li><span className="nm-legend-plate" /><span>Record</span></li>
+          <li><span className="nm-legend-plate" /><span>System</span></li>
           <li><span className="nm-legend-plate is-sketch" /><span>Sketch</span></li>
         </ul>
       </Section>

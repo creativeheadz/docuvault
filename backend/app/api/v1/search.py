@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.organization import Organization
-from app.models.configuration import Configuration
+from app.models.system import System
 from app.models.password import Password
 from app.models.document import Document
 from app.models.domain import Domain
@@ -56,12 +56,12 @@ async def global_search(
 
     config_q = (
         select(
-            literal_column("'configuration'").label("entity_type"),
-            Configuration.id.label("entity_id"),
-            Configuration.name.label("name"),
+            literal_column("'system'").label("entity_type"),
+            System.id.label("entity_id"),
+            System.name.label("name"),
         )
-        .where(Configuration.name.ilike(pattern))
-        .where(Configuration.archived_at.is_(None))
+        .where(System.name.ilike(pattern))
+        .where(System.archived_at.is_(None))
     )
 
     password_q = (

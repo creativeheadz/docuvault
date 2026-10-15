@@ -96,7 +96,7 @@ function MapList() {
           <div className="kicker mb-2">§ A blank sheet</div>
           <p className="font-mono text-xs max-w-md mx-auto" style={{ color: 'var(--ink-faint)' }}>
             Draw how a site's network hangs together: the gateway first, then everything that plugs into it,
-            each device tied to its record so the map shows what is up, what is down and what needs patching.
+            each device tied to its system so the map shows what is up, what is down and what needs patching.
           </p>
           <Button className="mt-6" onClick={openNew}><Plus className="h-3.5 w-3.5" /> Draw the first one</Button>
         </div>
@@ -121,7 +121,7 @@ function MapList() {
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
-                                if (confirm(`Delete “${m.name}”? The records on it are not affected.`)) remove.mutate(m.id)
+                                if (confirm(`Delete “${m.name}”? The systems on it are not affected.`)) remove.mutate(m.id)
                               }}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -136,7 +136,7 @@ function MapList() {
                         <div className="flex items-center gap-4 mt-1 font-mono text-xxs uppercase tracking-button text-ink-faint tnum">
                           <span><b className="text-ink font-medium">{m.node_count}</b> devices</span>
                           <span><b className="text-ink font-medium">{m.link_count}</b> links</span>
-                          <span><b className="text-ink font-medium">{m.record_count}</b> records</span>
+                          <span><b className="text-ink font-medium">{m.record_count}</b> systems</span>
                           <span className="ml-auto normal-case tracking-normal">{formatDistanceToNow(new Date(m.updated_at), { addSuffix: true })}</span>
                         </div>
                       </div>
