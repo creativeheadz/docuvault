@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useThemeStore } from '@/store/themeStore'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Moon, Sun, Shield, Bell, Database, Palette, Network, Globe, Activity, KeyRound } from 'lucide-react'
+import { Moon, Sun, Shield, Bell, Database, Palette, Network, Globe, Activity, KeyRound, Sparkles } from 'lucide-react'
 import { MfaSetup } from '@/components/settings/MfaSetup'
 import { MeshCentralSettings } from '@/components/settings/MeshCentralSettings'
 import { RegistrarsSettings } from '@/components/settings/RegistrarsSettings'
 import { UptimeSettings } from '@/components/settings/UptimeSettings'
+import { AssistantSettings } from '@/components/settings/AssistantSettings'
 import { ApiKeysSettings } from '@/components/settings/ApiKeysSettings'
 
 export default function SettingsPage() {
@@ -92,6 +93,16 @@ export default function SettingsPage() {
             </div>
           </CardHeader>
           <MeshCentralSettings />
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary-500" />
+              <CardTitle>AI assistant</CardTitle>
+            </div>
+          </CardHeader>
+          <AssistantSettings />
         </Card>
 
         <Card>

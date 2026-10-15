@@ -18,22 +18,30 @@ import {
 import type { System, SystemChatMessage, SystemToolEvent } from '@/types'
 import { SystemFacts } from '@/components/systems/SystemFacts'
 import { SourceBadges } from '@/components/systems/badges'
+import { getAssistantSettings } from '@/api/assistant'
 
 
-// Per-million-token USD pricing. Keep in sync with public Anthropic pricing.
+// Per-million-token USD pricing, Anthropic first-party rates (2026-10).
+// Cache writes are 1.25x input (5-minute TTL).
 const PRICING_PER_MTOK: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
-  'haiku-4-5':  { input: 1, output: 5,  cacheRead: 0.10, cacheWrite: 1.25 },
+  'fable-5-1':  { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
+  'opus-5-5':   { input: 4, output: 20, cacheRead: 0.20, cacheWrite: 5 },
+  'opus-5':     { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
+  'opus-4-8':   { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
+  'opus-4-7':   { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
+  'opus-4-6':   { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
+  'sonnet-5-5': { input: 2, output: 10, cacheRead: 0.20, cacheWrite: 2.5 },
+  'sonnet-5':   { input: 2, output: 10, cacheRead: 0.20, cacheWrite: 2.5 },
   'sonnet-4-6': { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
-  'opus-4-7':   { input: 15, output: 75, cacheRead: 1.50, cacheWrite: 18.75 },
+  'haiku-5-5':  { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+  'haiku-4-5':  { input: 1, output: 5,  cacheRead: 0.10, cacheWrite: 1.25 },
 }
+// Longest first, so 'sonnet-5-5' is matched before 'sonnet-5'.
+const PRICE_KEYS = Object.keys(PRICING_PER_MTOK).sort((a, b) => b.length - a.length)
 
 function priceFor(model?: string) {
-  if (model) {
-    for (const k of Object.keys(PRICING_PER_MTOK)) {
-      if (model.includes(k)) return PRICING_PER_MTOK[k]
-    }
-  }
-  return PRICING_PER_MTOK['haiku-4-5']
+  const key = model ? PRICE_KEYS.find((k) => model.includes(k)) : undefined
+  return PRICING_PER_MTOK[key ?? 'sonnet-4-6']
 }
 
 function estimateChatCost(messages: SystemChatMessage[]) {
@@ -116,25 +124,47 @@ function flattenMessages(rows: SystemChatMessage[]): RenderedTurn[] {
 }
 
 
+/** What came back from a tool call: nothing yet, an error, or a result. */
+function outcomeOf(result: unknown): { state: 'pending' | 'error' | 'ok'; parsed: unknown } {
+  if (result === undefined) return { state: 'pending', parsed: undefined }
+  let parsed: unknown = result
+  if (typeof result === 'string') {
+    try { parsed = JSON.parse(result) } catch { parsed = result }
+  }
+  const failed = !!parsed && typeof parsed === 'object' && 'error' in (parsed as Record<string, unknown>)
+  return { state: failed ? 'error' : 'ok', parsed }
+}
+
 function ToolCallStrip({ call, result }: { call: RenderedTurn['toolCalls'][0]; result: unknown }) {
   const [open, setOpen] = useState(false)
   const Icon = call.name === 'search_palace' ? Search
             : call.name === 'read_palace_drawer' ? BookOpen
             : Wrench
-  const label = call.name === 'search_palace' ? 'palace search'
-              : call.name === 'read_palace_drawer' ? 'palace read'
-              : call.name === 'update_system_draft' ? 'draft updated'
-              : call.name
+  const { state, parsed } = outcomeOf(result)
+  const applied = call.name === 'update_system_draft' && state === 'ok'
+    ? Object.keys(((parsed as { applied?: Record<string, unknown> }) || {}).applied || {})
+    : []
+  const base = call.name === 'search_palace' ? 'palace search'
+             : call.name === 'read_palace_drawer' ? 'palace read'
+             : call.name === 'update_system_draft' ? 'draft'
+             : call.name
+  // Say what happened, not what was asked for: a call that never ran or
+  // failed must not read as "updated".
+  const label = state === 'pending' ? `${base} · not run`
+              : state === 'error' ? `${base} · failed`
+              : call.name === 'update_system_draft' ? (applied.length ? 'draft updated' : 'draft unchanged')
+              : base
+  const tone = state === 'ok' ? 'var(--ember)' : 'var(--warn)'
 
   let preview = ''
   if (call.name === 'search_palace') preview = String(call.input.query || '')
   else if (call.name === 'read_palace_drawer') preview = String(call.input.drawer_id || '')
-  else if (call.name === 'update_system_draft') preview = Object.keys(call.input).join(', ')
+  else if (call.name === 'update_system_draft') preview = (applied.length ? applied : Object.keys(call.input)).join(', ')
 
   return (
     <div
       className="mt-2 text-xxs font-mono"
-      style={{ borderLeft: '2px solid var(--ember)', background: 'var(--ember-wash)' }}
+      style={{ borderLeft: `2px solid ${tone}`, background: 'var(--ember-wash)' }}
     >
       <button
         type="button"
@@ -142,8 +172,8 @@ function ToolCallStrip({ call, result }: { call: RenderedTurn['toolCalls'][0]; r
         className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--bg-3)] transition-colors"
       >
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        <Icon className="h-3 w-3" style={{ color: 'var(--ember)' }} />
-        <span className="uppercase tracking-button" style={{ color: 'var(--ember)' }}>{label}</span>
+        <Icon className="h-3 w-3" style={{ color: tone }} />
+        <span className="uppercase tracking-button" style={{ color: tone }}>{label}</span>
         {preview && <span className="truncate" style={{ color: 'var(--ink-dim)' }}>· {preview}</span>}
       </button>
       <AnimatePresence>
@@ -578,6 +608,7 @@ export default function SystemDetailPage() {
     enabled: !!id,
   })
 
+  const { data: assistant } = useQuery({ queryKey: ['assistant-settings'], queryFn: getAssistantSettings })
   const turns = useMemo(() => flattenMessages(messages), [messages])
   const cost = useMemo(() => estimateChatCost(messages), [messages])
 
@@ -688,6 +719,11 @@ export default function SystemDetailPage() {
                 >
                   · ${cost.usd < 0.01 ? cost.usd.toFixed(4) : cost.usd.toFixed(3)}
                 </span>
+              )}
+              {assistant && (
+                <Link to="/settings" className="hover:text-[var(--ember)]" style={{ color: 'var(--ink-faint)' }} title="The model the next message goes to; change it in Settings">
+                  · {assistant.model}
+                </Link>
               )}
             </div>
           </div>

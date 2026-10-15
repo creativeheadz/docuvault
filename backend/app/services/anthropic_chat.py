@@ -1,19 +1,26 @@
 """Anthropic-driven chat orchestration for system documentation.
 
 The LLM has three tools:
-  * search_palace(query)            — search MemPalace for relevant memories
-  * read_palace_drawer(drawer_id)   — fetch one drawer's full content
-  * update_system_draft(patch)      — merge partial fields into the working record
+  * search_palace(query)            - search MemPalace for relevant memories
+  * read_palace_drawer(drawer_id)   - fetch one drawer's full content
+  * update_system_draft(patch)      - merge partial fields into the working record
 
-Each user turn drives a tool-use loop until the model returns a stop_reason
-of "end_turn" with no more tool_use blocks. The full conversation (user +
-assistant + tool_use + tool_result blocks) is persisted in
-system_chat_messages so the next turn replays the same context.
+Each user turn drives a tool-use loop until the model stops asking for tools.
+The full conversation (user + assistant + tool_use + tool_result blocks) is
+persisted in system_chat_messages and replayed verbatim on the next turn.
+
+The history is append-only. Current models refuse a replayed conversation
+whose earlier turns were edited (their thinking blocks are bound to it), and
+any edit to an earlier turn also breaks the prompt-cache prefix, so nothing
+here rewrites what was sent before: a repair is always something appended.
+
+Which model, which key, how long a reply may be and at what effort come from
+app_settings (services/assistant_settings.py), falling back to the
+environment.
 
 Cost controls:
-  * Static system prompt + tools are cached via cache_control (5-min TTL).
-  * Old MemPalace tool_result blobs are stubbed before being sent back —
-    full text is kept in the DB for UI fidelity but not re-sent forever.
+  * The request is cached top-level (cache_control), so a resent history is
+    mostly cache reads.
   * Usage (input/output/cache tokens + model) is recorded per assistant row
     so the UI can render a running cost.
 """
@@ -30,19 +37,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.system import System
-from app.services import system_service
+from app.services import assistant_settings, system_service
 from app.services.mempalace_client import MemPalaceClient
 
 logger = logging.getLogger(__name__)
 
 
-# Maximum tool-use rounds inside a single user turn. Keep tight — runaway
+# Maximum tool-use rounds inside a single user turn. Keep tight: runaway
 # loops eat tokens fast.
-MAX_TOOL_ROUNDS = 6
-# Cap output per call. Replies are short ack-and-question turns.
-MAX_OUTPUT_TOKENS = 1024
-# Tool_results older than this many turns get stubbed before re-send.
-KEEP_FULL_TOOL_RESULT_TURNS = 1
+MAX_TOOL_ROUNDS = 8
 
 
 SYSTEM_PROMPT = """You are the documentation assistant inside DocuVault, helping the user (Andrei) describe one of his many systems: a machine on a client's network, a VM, a SaaS tool, a service. The current record is shown to you each turn, including its organisation and any inventory synced in from MeshCentral or Wegweiser.
@@ -168,68 +171,22 @@ def _build_tools() -> list[dict]:
     return [dict(t) for t in TOOLS_RAW]
 
 
-def _trim_history_for_api(history: list[dict]) -> list[dict]:
-    """Stub old palace tool_result blobs to keep the resent context small.
+def dangling_tool_uses(history: list[dict]) -> list[str]:
+    """Tool calls the last assistant message made that nothing answered.
 
-    The DB keeps the full content for UI display; we only trim what we send
-    back to Anthropic. update_system_draft results are kept (the model uses
-    them to know what landed), but search_palace / read_palace_drawer dumps
-    are replaced with a short marker once they're more than a couple of
-    turns old.
+    A turn that stopped right after the model asked for a tool (a reply cut
+    off at the output limit, before 2026-10-15) leaves its history ending on
+    a tool_use, which the API refuses to continue. The next turn answers it
+    by appending tool_results, never by editing the stored message."""
+    if not history or history[-1].get("role") != "assistant":
+        return []
+    return [b["id"] for b in (history[-1].get("content") or [])
+            if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("id")]
 
-    A "turn" boundary here is each user → assistant pair. We keep the most
-    recent KEEP_FULL_TOOL_RESULT_TURNS untouched and stub the rest.
-    """
-    if not history:
-        return history
 
-    # Walk backwards and find the cutoff point (count user-text turns).
-    user_text_count = 0
-    cutoff_idx = 0
-    for i in range(len(history) - 1, -1, -1):
-        msg = history[i]
-        # A "user-text" message is a user message whose first block is plain text
-        # (i.e., a real user message, not a tool_result message).
-        if msg.get("role") == "user":
-            content = msg.get("content") or []
-            if content and isinstance(content[0], dict) and content[0].get("type") == "text":
-                user_text_count += 1
-                if user_text_count > KEEP_FULL_TOOL_RESULT_TURNS:
-                    cutoff_idx = i
-                    break
-
-    if cutoff_idx == 0:
-        return history
-
-    trimmed: list[dict] = []
-    for idx, msg in enumerate(history):
-        if idx >= cutoff_idx:
-            trimmed.append(msg)
-            continue
-        # In old turns: shrink palace tool_results.
-        if msg.get("role") == "user":
-            new_content = []
-            mutated = False
-            for block in (msg.get("content") or []):
-                if isinstance(block, dict) and block.get("type") == "tool_result":
-                    raw = block.get("content")
-                    text = raw if isinstance(raw, str) else json.dumps(raw, default=str)
-                    if len(text) > 240 and "update_system_draft" not in text:
-                        new_content.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": block.get("tool_use_id"),
-                                "content": "[trimmed: prior palace lookup; ask again if needed]",
-                            }
-                        )
-                        mutated = True
-                        continue
-                new_content.append(block)
-            if mutated:
-                trimmed.append({"role": "user", "content": new_content})
-                continue
-        trimmed.append(msg)
-    return trimmed
+def _not_run(tool_use_id: str, why: str) -> dict:
+    return {"type": "tool_result", "tool_use_id": tool_use_id, "is_error": True,
+            "content": json.dumps({"error": f"Not run: {why}"})}
 
 
 async def _run_tool(
@@ -269,6 +226,9 @@ async def run_chat_turn(
     system: System,
     user_text: str,
     history: list[dict],
+    *,
+    client: Any = None,
+    config: assistant_settings.AssistantConfig | None = None,
 ) -> tuple[str, list[dict], list[dict]]:
     """Run one user turn through the LLM with tool-use loop.
 
@@ -277,84 +237,101 @@ async def run_chat_turn(
         tool_events: list of {name, input, output} for the UI
         new_messages: list of {role, content, usage?} dicts to persist.
             usage is set on assistant rows only.
-    """
-    if not settings.ANTHROPIC_API_KEY:
-        raise RuntimeError("ANTHROPIC_API_KEY is not configured")
 
-    # Bump retries above the default 2 — Anthropic returns 529 Overloaded under
-    # capacity pressure and the SDK retries with backoff. Five attempts spreads
-    # over ~30s, well within our nginx 300s read timeout.
-    client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=5)
+    `client` and `config` are for tests; normally both come from settings.
+    """
+    config = config or await assistant_settings.resolve(db)
+    if client is None:
+        if not config.api_key:
+            raise RuntimeError("No Anthropic API key: set one under Settings > AI assistant")
+        # Bump retries above the default 2: Anthropic returns 529 Overloaded
+        # under capacity pressure and the SDK retries with backoff. Five
+        # attempts spread over ~30s, well within nginx's 300s read timeout.
+        client = AsyncAnthropic(api_key=config.api_key, max_retries=5)
     palace = (
         MemPalaceClient(settings.MEMPALACE_URL, settings.MEMPALACE_TOKEN)
         if settings.MEMPALACE_URL
         else None
     )
-    model = settings.ANTHROPIC_MODEL
+    model = config.model
 
-    trimmed_history = _trim_history_for_api(history)
+    # A conversation left ending on an unanswered tool call is answered in
+    # the same user turn as the new message: appended, not edited.
+    opening = [_not_run(i, "the previous reply ended before this call could run") for i in dangling_tool_uses(history)]
+    opening.append({"type": "text", "text": user_text})
 
-    messages: list[dict] = list(trimmed_history) + [
-        {"role": "user", "content": [{"type": "text", "text": user_text}]}
-    ]
-    new_messages: list[dict] = [
-        {"role": "user", "content": [{"type": "text", "text": user_text}]}
-    ]
+    messages: list[dict] = list(history) + [{"role": "user", "content": opening}]
+    new_messages: list[dict] = [{"role": "user", "content": copy.deepcopy(opening)}]
 
     tool_events: list[dict] = []
     final_text = ""
     tools = _build_tools()
 
     for _ in range(MAX_TOOL_ROUNDS):
-        resp = await client.messages.create(
+        # Streamed so a long reply (a whole body of markdown in one tool
+        # call) is not held to the non-streaming request ceiling.
+        async with client.messages.stream(
             model=model,
-            max_tokens=MAX_OUTPUT_TOKENS,
+            max_tokens=config.max_output_tokens,
             system=_build_system_blocks(system),
             tools=tools,
             messages=messages,
-            # Auto-place the cache breakpoint on the last cacheable block. Engages
-            # once the request prefix exceeds 4096 tokens (Haiku 4.5 minimum) —
-            # in practice a few turns into a conversation. Below that threshold
-            # this is a no-op (no cache write, no cost penalty).
+            # Auto-place the cache breakpoint on the last cacheable block. It
+            # engages once the prefix passes the model's minimum; below that
+            # this is a no-op.
             cache_control={"type": "ephemeral"},
-        )
+            **config.request_extras(),
+        ) as stream:
+            resp = await stream.get_final_message()
 
-        # Persist the assistant's blocks verbatim. Strip any cache_control hints
-        # from the saved copy — they're transport-only.
         assistant_blocks = [b.model_dump() for b in resp.content]
         usage = _usage_dict(getattr(resp, "usage", None), model)
-
         messages.append({"role": "assistant", "content": copy.deepcopy(assistant_blocks)})
-        new_messages.append(
-            {"role": "assistant", "content": assistant_blocks, "usage": usage}
-        )
+        new_messages.append({"role": "assistant", "content": assistant_blocks, "usage": usage})
 
-        if resp.stop_reason != "tool_use":
-            for block in resp.content:
-                if block.type == "text":
-                    final_text += block.text
-            break
+        tool_uses = [b for b in resp.content if b.type == "tool_use"]
+        text = "".join(b.text for b in resp.content if b.type == "text")
 
-        # Run every tool_use block in this assistant turn, then send tool_result back.
-        tool_results: list[dict] = []
-        for block in resp.content:
-            if block.type != "tool_use":
-                continue
-            try:
-                output = await _run_tool(db, system, palace, block.name, dict(block.input))
-            except Exception as e:
-                logger.exception("tool %s failed", block.name)
-                output = {"error": str(e)}
-            tool_events.append({"name": block.name, "input": dict(block.input), "output": output})
-            tool_results.append(
-                {
+        if resp.stop_reason == "tool_use":
+            tool_results: list[dict] = []
+            for block in tool_uses:
+                try:
+                    output = await _run_tool(db, system, palace, block.name, dict(block.input))
+                except Exception as e:
+                    logger.exception("tool %s failed", block.name)
+                    output = {"error": str(e)}
+                tool_events.append({"name": block.name, "input": dict(block.input), "output": output})
+                tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
                     "content": json.dumps(output, default=str),
-                }
-            )
+                })
+            messages.append({"role": "user", "content": tool_results})
+            new_messages.append({"role": "user", "content": copy.deepcopy(tool_results)})
+            continue
 
-        messages.append({"role": "user", "content": tool_results})
-        new_messages.append({"role": "user", "content": copy.deepcopy(tool_results)})
+        if resp.stop_reason == "max_tokens" and tool_uses:
+            # Cut off while writing a tool call: its input cannot be trusted,
+            # so it is not run. Say so, and let the model try again smaller.
+            why = (f"your reply reached the {config.max_output_tokens}-token output limit and was "
+                   "cut off, so nothing was changed. Send it again in smaller pieces, for "
+                   "example the body in a call of its own.")
+            results = [_not_run(b.id, why) for b in tool_uses]
+            for b in tool_uses:
+                tool_events.append({"name": b.name, "input": {}, "output": {"error": f"Not run: {why}"}})
+            messages.append({"role": "user", "content": results})
+            new_messages.append({"role": "user", "content": copy.deepcopy(results)})
+            continue
+
+        if resp.stop_reason == "max_tokens":
+            final_text = text + "\n\n(The reply reached the output limit and was cut off.)"
+        elif resp.stop_reason == "refusal":
+            final_text = text or "(The model declined to answer this.)"
+        else:
+            final_text = text
+        break
+    else:
+        final_text = (f"(Stopped after {MAX_TOOL_ROUNDS} rounds of tool use without a final answer. "
+                      "Say \"continue\" to carry on.)")
 
     return final_text.strip(), tool_events, new_messages

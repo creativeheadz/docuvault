@@ -119,14 +119,14 @@ class MemPalaceClient:
 
     async def search(self, query: str, top_k: int = 8) -> Any:
         try:
-            return await self.call_tool("palace_search", {"query": query, "top_k": top_k})
+            return await self.call_tool("palace_search", {"query": query, "k": top_k})
         except Exception as e:
             logger.warning("palace_search failed: %s", e)
             return {"error": str(e), "items": []}
 
     async def read_drawer(self, drawer_id: str) -> Any:
         try:
-            return await self.call_tool("palace_read", {"id": drawer_id})
+            return await self.call_tool("palace_read", {"drawer_id": drawer_id})
         except Exception as e:
             logger.warning("palace_read failed: %s", e)
             return {"error": str(e)}

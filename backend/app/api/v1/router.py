@@ -33,6 +33,7 @@ from app.api.v1.user_access import router as user_access_router
 from app.api.v1.uptime import router as uptime_router
 from app.api.v1.api_tokens import router as api_tokens_router
 from app.api.v1.network_maps import router as network_maps_router
+from app.api.v1.assistant import router as assistant_router
 from app.api.v1.integration import router as integration_router
 from app.api.v1.inventory import router as inventory_router
 
@@ -70,6 +71,7 @@ api_router.include_router(user_access_router)
 api_router.include_router(uptime_router)
 api_router.include_router(api_tokens_router)
 api_router.include_router(network_maps_router)
+api_router.include_router(assistant_router)
 # Machine-authenticated (X-API-Key). Last, and separate: nothing above
 # this line accepts anything but a user JWT.
 api_router.include_router(integration_router)

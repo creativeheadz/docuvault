@@ -87,10 +87,10 @@ Inventory has owners. MeshCentral's sync (`mesh_*`) keeps name, hostname, IP and
 `api/v1/systems.py` + `services/system_service.py` + `services/anthropic_chat.py` + `services/mempalace_client.py` provide a chat-driven authoring surface on every system's page.
 
 - Each chat turn (`POST /api/v1/systems/{id}/chat`) runs a tool-use loop against the Anthropic Messages API. The model has three tools: `search_palace`, `read_palace_drawer`, `update_system_draft`.
-- The full conversation is persisted in `system_chat_messages` as Anthropic-style content blocks (`text`, `tool_use`, `tool_result`). Each new turn replays the entire history so context survives across sessions. Don't store summaries — keep the raw blocks.
+- The full conversation is persisted in `system_chat_messages` as Anthropic-style content blocks (`text`, `tool_use`, `tool_result`). Each new turn replays the entire history so context survives across sessions. Don't store summaries — keep the raw blocks. **The history is append-only**: current models refuse a replayed conversation whose earlier turns were edited, and any edit also breaks the cache prefix, so old palace results are no longer trimmed and a repair is always appended (a turn left ending on an unanswered `tool_use` is closed by `tool_result`s at the start of the next user turn).
 - `update_system_draft` is the only mutation tool. `snippets` patches **merge** key-by-key (use `null` to delete a key); `tags` and `palace_drawer_ids` **replace**; other scalar fields replace. The diff that was actually applied is returned in the tool result so the frontend can flash changed fields.
 - `services/mempalace_client.py` is a minimal MCP streamable-HTTP client (httpx, `follow_redirects=True`, JSON or SSE response parsing). It re-initializes per call rather than holding a session — palace calls are infrequent enough that the overhead is fine, and statelessness keeps the implementation simple. Failures degrade gracefully so the chat still works without MemPalace.
-- Required env: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default `claude-sonnet-4-6`). Optional: `MEMPALACE_URL`, `MEMPALACE_TOKEN`.
+- Model, API key (encrypted), longest reply and effort are set under Settings > AI assistant (`services/assistant_settings.py`, app_settings key `assistant`); `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` are the fallback. Replies are streamed, so the output limit can be 2k-32k (default 16k). A reply cut off at the limit while writing a tool call does not run it: the model is told and gets another round to send it smaller (`tests/test_systems_chat_loop.py`). Optional: `MEMPALACE_URL`, `MEMPALACE_TOKEN`; the palace's `palace_read` takes `drawer_id` and `palace_search` takes `k`.
 - **Frontend nginx proxy**: `frontend/nginx.conf` sets `proxy_read_timeout 300s` for `/api/` because chat turns can run multiple LLM rounds and the default 60s causes 504s. If you tighten this, the chat will start timing out on multi-tool turns.
 
 ### Frontend (`frontend/src/`)
@@ -115,6 +115,6 @@ Inventory has owners. MeshCentral's sync (`mesh_*`) keeps name, hostname, IP and
 The `anthropic` Python SDK (`AsyncAnthropic`) is used for the systems chat. Tool definitions live in `services/anthropic_chat.py` next to the orchestration loop. When changing tool schemas:
 
 - The `input_schema` is JSON Schema. Keep it tight — additional/loose properties confuse the model and inflate token usage.
-- Model defaults to `claude-sonnet-4-6` for chat (good cost/latency balance with tool use). For one-shot heavy reasoning, override via `ANTHROPIC_MODEL`.
-- The orchestrator caps tool-use rounds at 8 per turn — bump only if you have a reason; runaway loops eat tokens fast.
+- The model is a setting (Settings > AI assistant); with nothing saved it is `ANTHROPIC_MODEL`, else `claude-sonnet-4-6`.
+- The orchestrator caps tool-use rounds at 8 per turn (`MAX_TOOL_ROUNDS`) — bump only if you have a reason; runaway loops eat tokens fast.
 - Tool results are serialized as JSON-stringified `tool_result` blocks. The model handles structured JSON well; don't pre-summarize results in Python.

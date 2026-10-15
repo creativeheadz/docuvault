@@ -49,7 +49,7 @@ from app.models.user import User                     # noqa: E402
 ENCRYPTED_FIELDS = [
     (User, "totp_secret", "b64"),          # mfa_service.encrypt_secret
     (Password, "password_encrypted", "raw"),  # api/v1/passwords.py
-    (AppSettings, "value", "json"),        # registrars, uptime, meshcentral
+    (AppSettings, "value", "json"),        # registrars, uptime, meshcentral, assistant
 ]
 
 
